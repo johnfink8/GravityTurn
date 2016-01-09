@@ -39,8 +39,9 @@ namespace GravityTurn
         bool PitchSet = false;
         StageStats stagestats = null;
         float PitchAdjustment = 0;
-        double PitchDelay = 0;
-        double PitchDelayTime = 15;
+        float PitchDelay = 0;
+        float PitchDelayTime = 4f;
+        string Message = "";
 
 #if DEBUG            
         public static void Log(string message, [CallerMemberName] string callingMethod = "",
@@ -94,6 +95,22 @@ namespace GravityTurn
                 );
         }
 
+        bool StageHasSolidEngine(int inverseStage)
+        {
+            foreach (Part p in vessel.parts)
+            {
+                if (p.inverseStage == inverseStage)
+                {
+                    foreach (ModuleEngines e in p.FindModulesImplementing<ModuleEngines>())
+                    {
+                        if (e.engineType == EngineType.SolidBooster)
+                            return true;
+                    }
+                }
+            }
+            return false;
+        }
+
         void CalculateSettings()
         {
             stagestats.RequestUpdate(this);
@@ -104,7 +121,10 @@ namespace GravityTurn
                 Debug.Log(string.Format("Stage {0} TWR {1:0.00}", i, stagetwr));
                 if (stagetwr > 0)
                 {
-                    TWR = stagetwr;
+                    if (StageHasSolidEngine(i))
+                        TWR = (stagetwr + stagestats.atmoStats[i].MaxTWR(vessel.mainBody.GeeASL))/2.3;
+                    else
+                        TWR = stagetwr;
                     break;
                 }
             }
@@ -195,6 +215,7 @@ namespace GravityTurn
                 CalculateSettings();
             if (Staging.CurrentStage == Staging.StageCount && GUILayout.Button("Launch!"))
                 Staging.ActivateNextStage();
+            GUILayout.Label(Message);
             GUILayout.EndVertical();
             GUI.DragWindow(new Rect(0, 0, 10000, 20));
             HoldAPTime = APTimeStart + ((float)vessel.altitude / (float)vessel.mainBody.atmosphereDepth * (APTimeFinish - APTimeStart));
@@ -229,6 +250,11 @@ namespace GravityTurn
 
         }
 
+        private float MaxAngle()
+        {
+            return 150000 / (float)vesselState.dynamicPressure;
+        }
+
         private float APThrottle(double timeToAP)
         {
             if (vessel.speed < StartSpeed)
@@ -241,7 +267,7 @@ namespace GravityTurn
                     timeToAP = 0;
                 float diff = 0.1f * (float)Math.Abs(HoldAPTime - timeToAP) * Sensitivity;
                 TimeSpeed = (PrevTime - timeToAP) / (Time.time - lastTimeMeasured);
-                if (Math.Abs(TimeSpeed) < 0.02)
+                if (Math.Abs(TimeSpeed) < 0.02 && PitchAdjustment==0)
                     NeutralThrottle = (float)Throttle.value;
                 if (Math.Abs(timeToAP - HoldAPTime) < 0.1)
                 {
@@ -253,7 +279,10 @@ namespace GravityTurn
                 else if (timeToAP < HoldAPTime)
                 {
                     if (Throttle.value >= 1 && timeToAP < PrevTime)
+                    {
+                        NeutralThrottle = 1;
                         PitchAdjustment += 0.1f;
+                    }
                     Throttle.value += diff;
                 }
                 else if (timeToAP > HoldAPTime)
@@ -266,6 +295,8 @@ namespace GravityTurn
             }
             if (PitchAdjustment < 0)
                 PitchAdjustment = 0;
+            if (PitchAdjustment > MaxAngle())
+                PitchAdjustment = MaxAngle();
             PrevTime = vessel.orbit.timeToAp;
             lastTimeMeasured = Time.time;
             if (Throttle.value < Sensitivity)
@@ -297,13 +328,10 @@ namespace GravityTurn
                 else
                     s.mainThrottle = 0;
                 //if (InPitchProgram && attitude.attitudeGetReferenceRotation(AttitudeReference.SURFACE_NORTH).eulerAngles.x > Quaternion.Euler(-90 + TurnAngle, 90, Roll).eulerAngles.x)
-                if (InPitchProgram && PitchSet && attitude.attitudeAngleFromTarget() < 0.5)
-                {
-                    if (PitchDelay == 0)
-                        PitchDelay = Time.time + PitchDelayTime;
-                    else if (PitchDelay < Time.time)
-                        InPitchProgram = false;
-                }
+                if (PitchDelay > 0 && PitchDelay < Time.time)
+                    InPitchProgram = false;
+                else if (InPitchProgram && PitchSet && attitude.attitudeAngleFromTarget() < 0.5)
+                    PitchDelay = Time.time + PitchDelayTime;
                 if (vessel.speed < StartSpeed)
                 {
                     InPitchProgram = true;
