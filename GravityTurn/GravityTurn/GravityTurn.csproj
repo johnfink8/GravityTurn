@@ -9,8 +9,9 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>GravityTurn</RootNamespace>
     <AssemblyName>GravityTurn</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -45,6 +46,7 @@
   <ItemGroup>
     <Compile Include="AttitudeController.cs" />
     <Compile Include="CelestialBodyExtensions.cs" />
+    <Compile Include="FuelFlowSimulation.cs" />
     <Compile Include="GravityTurner.cs" />
     <Compile Include="MathExtensions.cs" />
     <Compile Include="OrbitExtensions.cs" />
@@ -52,6 +54,7 @@
     <Compile Include="PIDController.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="StageController.cs" />
+    <Compile Include="StageStats.cs" />
     <Compile Include="Utils.cs" />
     <Compile Include="Vector6.cs" />
     <Compile Include="VesselExtensions.cs" />

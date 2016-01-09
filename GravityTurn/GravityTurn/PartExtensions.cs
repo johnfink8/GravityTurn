@@ -2,13 +2,33 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
+//using System.Threading.Tasks;
 using UnityEngine;
 
 namespace GravityTurn
 {
     static class PartExtensions
     {
+        public static bool HasModule<T>(this Part part) where T : PartModule
+        {
+            for (int i = 0; i < part.Modules.Count; i++)
+            {
+                if (part.Modules[i] is T)
+                    return true;
+            }
+            return false;
+        }
+        public static T GetModule<T>(this Part part) where T : PartModule
+        {
+            for (int i = 0; i < part.Modules.Count; i++)
+            {
+                PartModule pm = part.Modules[i];
+                T module = pm as T;
+                if (module != null)
+                    return module;
+            }
+            return null;
+        }
         public static bool IsUnfiredDecoupler(this Part p)
         {
             for (int i = 0; i < p.Modules.Count; i++)

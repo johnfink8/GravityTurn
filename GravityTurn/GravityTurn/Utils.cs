@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
+//using System.Threading.Tasks;
 using UnityEngine;
 using System.Reflection;
 
@@ -379,5 +379,45 @@ namespace GravityTurn
             }
             return ret;
         }
+    }
+    class DefaultableDictionary<TKey, TValue> : IDictionary<TKey, TValue>
+    {
+        Dictionary<TKey, TValue> d = new Dictionary<TKey, TValue>();
+        TValue defaultValue;
+
+        public DefaultableDictionary(TValue defaultValue)
+        {
+            this.defaultValue = defaultValue;
+        }
+
+        public TValue this[TKey key]
+        {
+            get
+            {
+                if (d.ContainsKey(key)) return d[key];
+                else return defaultValue;
+            }
+            set
+            {
+                if (d.ContainsKey(key)) d[key] = value;
+                else d.Add(key, value);
+            }
+        }
+
+        public void Add(TKey key, TValue value) { d.Add(key, value); }
+        public bool ContainsKey(TKey key) { return d.ContainsKey(key); }
+        public ICollection<TKey> Keys { get { return d.Keys; } }
+        public bool Remove(TKey key) { return d.Remove(key); }
+        public bool TryGetValue(TKey key, out TValue value) { return d.TryGetValue(key, out value); }
+        public ICollection<TValue> Values { get { return d.Values; } }
+        public void Add(KeyValuePair<TKey, TValue> item) { ((IDictionary<TKey, TValue>)d).Add(item); }
+        public void Clear() { d.Clear(); }
+        public bool Contains(KeyValuePair<TKey, TValue> item) { return ((IDictionary<TKey, TValue>)d).Contains(item); }
+        public void CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex) { ((IDictionary<TKey, TValue>)d).CopyTo(array, arrayIndex); }
+        public int Count { get { return d.Count; } }
+        public bool IsReadOnly { get { return ((IDictionary<TKey, TValue>)d).IsReadOnly; } }
+        public bool Remove(KeyValuePair<TKey, TValue> item) { return ((IDictionary<TKey, TValue>)d).Remove(item); }
+        public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator() { return d.GetEnumerator(); }
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() { return ((System.Collections.IEnumerable)d).GetEnumerator(); }
     }
 }

@@ -108,7 +108,7 @@ namespace GravityTurn
 
         public List<int> FindBurnedResources()
         {
-            return new List<int>();
+            //return new List<int>();
             var activeEngines = vessel.parts.Where(PartIsEngine);
             var engineModules = activeEngines.Select(EnabledEngine);
             var burnedPropellants = engineModules.SelectMany(eng => eng.propellants);
@@ -204,6 +204,18 @@ namespace GravityTurn
                 {
                     return true;
                 }
+            }
+            return false;
+        }
+
+        public static bool HasStayingFairing(int inverseStage,Vessel v)
+        {
+            foreach (Part p in v.parts)
+            {
+                if (p.inverseStage == inverseStage && 
+                    !p.IsDecoupledInStage(inverseStage) && 
+                    p.FindModulesImplementing<ModuleProceduralFairing>().Any())
+                    return true;
             }
             return false;
         }
