@@ -45,31 +45,35 @@ namespace GravityTurn
                     //Don't fire a stage that will activate a parachute, unless that parachute gets decoupled:
                     if (!HasStayingChutes(Staging.CurrentStage - 1, vessel))
                     {
-                        //only fire decouplers to drop deactivated engines or tanks
-                        bool firesDecoupler = InverseStageFiresDecoupler(Staging.CurrentStage - 1, vessel);
-                        if (!firesDecoupler || InverseStageDecouplesDeactivatedEngineOrTank(Staging.CurrentStage - 1, vessel))
+                        // Don't pop procedural fairings at more than 20k dynamic pressure
+                        if (!HasStayingFairing(Staging.CurrentStage - 1, vessel) || (vesselState.dynamicPressure < 10000 && vesselState.altitudeASL > vessel.mainBody.atmosphereDepth * 0.2))
                         {
-                            //When we find that we're allowed to stage, start a countdown (with a 
-                            //length given by autostagePreDelay) and only stage once that countdown finishes,
-                            if (countingDown)
+                            //only fire decouplers to drop deactivated engines or tanks
+                            bool firesDecoupler = InverseStageFiresDecoupler(Staging.CurrentStage - 1, vessel);
+                            if (!firesDecoupler || InverseStageDecouplesDeactivatedEngineOrTank(Staging.CurrentStage - 1, vessel))
                             {
-                                if (vesselState.time - stageCountdownStart > autostagePreDelay)
+                                //When we find that we're allowed to stage, start a countdown (with a 
+                                //length given by autostagePreDelay) and only stage once that countdown finishes,
+                                if (countingDown)
                                 {
-                                    if (firesDecoupler)
+                                    if (vesselState.time - stageCountdownStart > autostagePreDelay)
                                     {
-                                        //if we decouple things, delay the next stage a bit to avoid exploding the debris
-                                        lastStageTime = vesselState.time;
+                                        if (firesDecoupler)
+                                        {
+                                            //if we decouple things, delay the next stage a bit to avoid exploding the debris
+                                            lastStageTime = vesselState.time;
+                                        }
+
+                                        Staging.ActivateNextStage();
+                                        countingDown = false;
+
                                     }
-
-                                    Staging.ActivateNextStage();
-                                    countingDown = false;
-
                                 }
-                            }
-                            else
-                            {
-                                countingDown = true;
-                                stageCountdownStart = vesselState.time;
+                                else
+                                {
+                                    countingDown = true;
+                                    stageCountdownStart = vesselState.time;
+                                }
                             }
                         }
                     }

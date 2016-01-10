@@ -40,8 +40,10 @@ namespace GravityTurn
         StageStats stagestats = null;
         float PitchAdjustment = 0;
         float PitchDelay = 0;
-        float PitchDelayTime = 4f;
+        float PitchDelayTime = 8f;
         string Message = "";
+        MechjebWrapper mucore = new MechjebWrapper();
+        bool Launching = false;
 
 #if DEBUG            
         public static void Log(string message, [CallerMemberName] string callingMethod = "",
@@ -59,6 +61,7 @@ namespace GravityTurn
 
         void Start()
         {
+            mucore.init();
             vesselState = new VesselState();
             attitude = new AttitudeController(this);
             stage = new StageController(this);
@@ -75,6 +78,11 @@ namespace GravityTurn
         }
         private void SetWindowOpen()
         {
+            if (vessel.mainBody.atmosphereDepth > 0)
+                DestinationHeight = vessel.mainBody.atmosphereDepth + 10000;
+            else
+                DestinationHeight = vessel.mainBody.timeWarpAltitudeLimits[1] + 10000;
+            DestinationHeight /= 1000;
             CalculateSettings();
             vessel.OnFlyByWire += new FlightInputCallback(fly);
             WindowVisible = true;
@@ -131,8 +139,8 @@ namespace GravityTurn
             if (TWR > 1.2)
             {
                 TWR -= 1.2;
-                TurnAngle = Mathf.Clamp((float)(10 + TWR * 9), 10, 30);
-                StartSpeed = Mathf.Clamp((float)(100 - TWR * 45), 20, 100);
+                TurnAngle = Mathf.Clamp((float)(10 + TWR * 9), 10, 80);
+                StartSpeed = Mathf.Clamp((float)(100 - TWR * 45), 10, 100);
             }
         }
 
@@ -211,14 +219,21 @@ namespace GravityTurn
             GUILayout.BeginHorizontal();
             GUILayout.Label(string.Format("Time to match: {0:0.0}",HoldAPTime), GUILayout.ExpandWidth(false));
             GUILayout.EndHorizontal();
-            if (Staging.CurrentStage == Staging.StageCount && GUILayout.Button("Best Guess Settings", GUILayout.ExpandWidth(false)))
+            if (vessel.Landed && !Launching && GUILayout.Button("Best Guess Settings", GUILayout.ExpandWidth(false)))
                 CalculateSettings();
-            if (Staging.CurrentStage == Staging.StageCount && GUILayout.Button("Launch!"))
-                Staging.ActivateNextStage();
+            if (vessel.Landed && !Launching && GUILayout.Button("Launch!"))
+            {
+                if (Staging.CurrentStage == Staging.StageCount)
+                    Staging.ActivateNextStage();
+                Launching = true;
+            }
             GUILayout.Label(Message);
             GUILayout.EndVertical();
             GUI.DragWindow(new Rect(0, 0, 10000, 20));
-            HoldAPTime = APTimeStart + ((float)vessel.altitude / (float)vessel.mainBody.atmosphereDepth * (APTimeFinish - APTimeStart));
+            double StopHeight = vessel.mainBody.atmosphereDepth;
+            if (StopHeight <= 0)
+                StopHeight = DestinationHeight*1000;
+            HoldAPTime = APTimeStart + ((float)vessel.altitude / (float)StopHeight * (APTimeFinish - APTimeStart));
             if (HoldAPTime > Math.Max(APTimeFinish, APTimeStart))
                 HoldAPTime = Math.Max(APTimeFinish, APTimeStart);
             if (HoldAPTime < Math.Min(APTimeFinish, APTimeStart))
@@ -308,6 +323,7 @@ namespace GravityTurn
 
         private void Kill()
         {
+            Launching = false;
             vessel.OnFlyByWire -= new FlightInputCallback(fly);
             WindowVisible = false;
             FlightInputHandler.state.mainThrottle = 0;
@@ -317,8 +333,18 @@ namespace GravityTurn
 
         private void fly(FlightCtrlState s)
         {
-            if (!WindowVisible || vessel.altitude > vessel.mainBody.atmosphereDepth)
+            if (!Launching)
+                return;
+            if (!WindowVisible) 
                 Kill();
+            else if (vessel.orbit.ApA > DestinationHeight*1000 && vessel.altitude > vessel.mainBody.atmosphereDepth)
+            {
+                if (TimeWarp.CurrentRateIndex > 0)
+                    TimeWarp.SetRate(0, true);
+                if (mucore.Initialized)
+                    mucore.CircularizeAtAP();
+                Kill();
+            }
             else
             {
                 if (EnableStaging)
@@ -328,10 +354,13 @@ namespace GravityTurn
                 else
                     s.mainThrottle = 0;
                 //if (InPitchProgram && attitude.attitudeGetReferenceRotation(AttitudeReference.SURFACE_NORTH).eulerAngles.x > Quaternion.Euler(-90 + TurnAngle, 90, Roll).eulerAngles.x)
-                if (PitchDelay > 0 && PitchDelay < Time.time)
-                    InPitchProgram = false;
-                else if (InPitchProgram && PitchSet && attitude.attitudeAngleFromTarget() < 0.5)
-                    PitchDelay = Time.time + PitchDelayTime;
+                if (InPitchProgram && PitchSet)
+                {
+                    if (PitchDelay > 0 && PitchDelay < Time.time)
+                        InPitchProgram = false;
+                    else if (PitchDelay == 0 && attitude.attitudeAngleFromTarget() < 0.5)
+                        PitchDelay = Time.time + PitchDelayTime;
+                }
                 if (vessel.speed < StartSpeed)
                 {
                     InPitchProgram = true;
@@ -339,12 +368,12 @@ namespace GravityTurn
                 }
                 else if (InPitchProgram)
                 {
-                    attitude.attitudeTo(Quaternion.Euler(-90+TurnAngle, 90, Roll), AttitudeReference.SURFACE_NORTH, this);
+                    attitude.attitudeTo(Quaternion.Euler(-90 + TurnAngle, 90, Roll), AttitudeReference.SURFACE_NORTH, this);
                     PitchSet = true;
                 }
                 else if (vessel.altitude < vessel.mainBody.atmosphereDepth * 0.5)
                 {
-                    attitude.attitudeTo(Quaternion.Euler(0-PitchAdjustment, 0, Roll), AttitudeReference.SURFACE_VELOCITY, this);
+                    attitude.attitudeTo(Quaternion.Euler(0 - PitchAdjustment, 0, Roll), AttitudeReference.SURFACE_VELOCITY, this);
                 }
                 else
                 {

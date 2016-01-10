@@ -38,6 +38,9 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Kerbal Space Program\KSP_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
     </Reference>
+    <Reference Include="MechJeb2">
+      <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Kerbal Space Program\GameData\MechJeb2\Plugins\MechJeb2.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="UnityEngine">
       <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Kerbal Space Program\KSP_Data\Managed\UnityEngine.dll</HintPath>
@@ -49,6 +52,7 @@
     <Compile Include="FuelFlowSimulation.cs" />
     <Compile Include="GravityTurner.cs" />
     <Compile Include="MathExtensions.cs" />
+    <Compile Include="MechjebWrapper.cs" />
     <Compile Include="OrbitExtensions.cs" />
     <Compile Include="PartExtensions.cs" />
     <Compile Include="PIDController.cs" />
@@ -67,7 +71,7 @@ copy /Y "$(TargetPath)" "$(SolutionDir)\..\GameData\GravityTurn\Plugins\"
 
 robocopy /E  /NJH /NJS /np "$(SolutionDir)\..\GameData\GravityTurn" "C:\Program Files (x86)\Steam\steamapps\common\Kerbal Space Program\GameData\GravityTurn"
 if errorlevel 8 exit 1
-exit 0
+copy /Y "$(TargetPath)" "C:\KSP_Debug\GameData\GravityTurn\Plugins"
 </PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
