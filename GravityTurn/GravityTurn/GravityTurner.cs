@@ -267,7 +267,10 @@ namespace GravityTurn
 
         private float MaxAngle()
         {
-            return 150000 / (float)vesselState.dynamicPressure;
+            float angle = 100000 / (float)vesselState.dynamicPressure;
+            if (angle > 15)
+                return 15;
+            return angle;
         }
 
         private float APThrottle(double timeToAP)
