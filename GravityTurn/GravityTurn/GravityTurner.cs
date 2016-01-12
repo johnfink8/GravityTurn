@@ -39,8 +39,6 @@ namespace GravityTurn
         bool PitchSet = false;
         StageStats stagestats = null;
         float PitchAdjustment = 0;
-        float PitchDelay = 0;
-        float PitchDelayTime = 8f;
         string Message = "";
         MechjebWrapper mucore = new MechjebWrapper();
         bool Launching = false;
@@ -356,13 +354,10 @@ namespace GravityTurn
                     s.mainThrottle = APThrottle(vessel.orbit.timeToAp);
                 else
                     s.mainThrottle = 0;
-                //if (InPitchProgram && attitude.attitudeGetReferenceRotation(AttitudeReference.SURFACE_NORTH).eulerAngles.x > Quaternion.Euler(-90 + TurnAngle, 90, Roll).eulerAngles.x)
                 if (InPitchProgram && PitchSet)
                 {
-                    if (PitchDelay > 0 && PitchDelay < Time.time)
+                    if (attitude.surfaceVelocityAngleFromTarget() < 0.5)
                         InPitchProgram = false;
-                    else if (PitchDelay == 0 && attitude.attitudeAngleFromTarget() < 0.5)
-                        PitchDelay = Time.time + PitchDelayTime;
                 }
                 if (vessel.speed < StartSpeed)
                 {

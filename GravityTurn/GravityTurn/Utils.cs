@@ -234,6 +234,21 @@ namespace GravityTurn
             }
         }
     }
+
+    public class TotalAverage
+    {
+        public double value = 0;
+        public ulong count = 0;
+
+        public void Add(double v)
+        {
+            value = (value * count + v) / (count + 1);
+            count += 1;
+        }
+
+
+    }
+
     public class MovingAverage
     {
         private double[] store;

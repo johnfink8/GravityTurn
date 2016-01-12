@@ -155,6 +155,8 @@ namespace GravityTurn
         // Lift is the force (pureDrag + PureLift) applied in the "Up" direction
         public double liftUp;
 
+        public Quaternion surfaceHeading;
+
 
 
         public double mach;
@@ -249,6 +251,14 @@ namespace GravityTurn
             gimbalExtDict[typeof(T)] = gimbalExtension;
         }
 
+        void UpdateRelativeSurfaceHeading(Vessel vessel)
+        {
+            Quaternion reference = rotationSurface;
+            Quaternion rattitude = reference.Inverse() * vessel.transform.rotation * Quaternion.Euler(90, 0, 0);
+            surfaceHeading = rattitude;
+        }
+
+
         public void Update(Vessel vessel)
         {
             if (vessel.rigidbody == null) return; //if we try to update before rigidbodies exist we spam the console with NullPointerExceptions.
@@ -258,6 +268,7 @@ namespace GravityTurn
             UpdateVelocityAndCoM(vessel);
 
             UpdateBasicInfo(vessel);
+            UpdateRelativeSurfaceHeading(vessel);
 
             //Debug.Log("VesselState Update UpdateRCSThrustAndTorque");
             //UpdateRCSThrustAndTorque(vessel);

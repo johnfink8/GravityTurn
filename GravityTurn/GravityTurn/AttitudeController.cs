@@ -311,7 +311,18 @@ namespace GravityTurn
         //angle in degrees between the vessel's current pointing direction and the attitude target, ignoring roll
         public double attitudeAngleFromTarget()
         {
-            return enabled ? Math.Abs(Vector3d.Angle(attitudeGetReferenceRotation(attitudeReference) * attitudeTarget * Vector3d.forward, vesselState.forward)) : 0;
+            return enabled ? Math.Abs(
+                Vector3d.Angle(
+                    attitudeGetReferenceRotation(attitudeReference) * attitudeTarget * Vector3d.forward, 
+                    vesselState.forward)) : 0;
+        }
+
+        public double surfaceVelocityAngleFromTarget()
+        {
+            return enabled ? Math.Abs(
+                Vector3d.Angle(
+                    attitudeGetReferenceRotation(attitudeReference) * attitudeTarget * Vector3d.forward,
+                    vesselState.surfaceVelocity)) : 0;
         }
 
         public void OnFixedUpdate()
