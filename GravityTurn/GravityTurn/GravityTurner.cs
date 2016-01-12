@@ -31,6 +31,8 @@ namespace GravityTurn
 
         float NeutralThrottle = 0.5f;
         double PrevTime = 0;
+        double VelocityLost = 0;
+        double FlyTimeInterval = 0;
         MovingAverage Throttle = new MovingAverage(10, 1);
         private float lastTimeMeasured = 0.0f;
         public VesselState vesselState = null;
@@ -46,6 +48,7 @@ namespace GravityTurn
         MechjebWrapper mucore = new MechjebWrapper();
         bool Launching = false;
         double maxQ = 0;
+        Vector3d RelativeVelocity;
 
 #if DEBUG            
         public static void Log(string message, [CallerMemberName] string callingMethod = "",
@@ -235,6 +238,10 @@ namespace GravityTurn
                 maxQ = 0;
                 Launching = true;
             }
+            if (Launching && GUILayout.Button("Abort!"))
+            {
+                Kill();
+            }
             GUILayout.Label(Message);
             GUILayout.EndVertical();
             GUI.DragWindow(new Rect(0, 0, 10000, 20));
@@ -336,7 +343,7 @@ namespace GravityTurn
         {
             Launching = false;
             vessel.OnFlyByWire -= new FlightInputCallback(fly);
-            WindowVisible = false;
+            //WindowVisible = false;
             FlightInputHandler.state.mainThrottle = 0;
             attitude.enabled = false;
             vessel.ActionGroups.SetGroup(KSPActionGroup.SAS, false);
@@ -366,6 +373,7 @@ namespace GravityTurn
                     s.mainThrottle = APThrottle(vessel.orbit.timeToAp);
                 else
                     s.mainThrottle = 0;
+                RelativeVelocity = vesselState.surfaceVelocity;
                 if (InPitchProgram && PitchSet)
                 {
                     if (attitude.surfaceVelocityAngleFromTarget() < 0.5)
@@ -388,11 +396,22 @@ namespace GravityTurn
                 else
                 {
                     attitude.attitudeTo(Quaternion.Euler(0 - PitchAdjustment, 0, Roll), AttitudeReference.ORBIT, this);
+                    RelativeVelocity = vesselState.orbitalVelocity;
                 }
                 attitude.enabled = true;
                 attitude.Drive(s);
                 if (Math.Abs(s.roll) > 0.2)
                     s.roll *= 0.2f;
+                double fwdAcceleration = Vector3d.Dot(vessel.acceleration, vesselState.forward.normalized);
+                VelocityLost += ((vesselState.thrustCurrent / vesselState.mass) - fwdAcceleration) * (Time.time - FlyTimeInterval);
+                FlyTimeInterval = Time.time;
+                Message = string.Format("Thrust: {0:0.00}kN\nForward Accel: {1:0.00}m/s\xB2\nMass:{2:0.00}kg\nNet Loss: {3:0.00}m/s\xB2\nTotal Loss: {4:0.00}m/s", 
+                    vesselState.thrustCurrent,
+                    fwdAcceleration,
+                    vesselState.mass,
+                    (vesselState.thrustCurrent / vesselState.mass) - fwdAcceleration,
+                    VelocityLost
+                    );
             }
         }
 
