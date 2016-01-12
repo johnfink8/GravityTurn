@@ -8,6 +8,92 @@ using System.Reflection;
 
 namespace GravityTurn
 {
+    public struct EditableValue
+    {
+        public double value;
+        public bool valid;
+        string format;
+        string str;
+        public EditableValue(double initialValue,string printFormat="{0:0.00}")
+        {
+            value = initialValue;
+            format = printFormat;
+            valid = true;
+            str = value.ToString();
+        }
+
+        public EditableValue(string initialStr, string printFormat = "{0:0.00}")
+        {
+            format = printFormat;
+            try
+            {
+                value = double.Parse(initialStr);
+                str = initialStr;
+                valid = true;
+            }
+            catch (Exception)
+            {
+                value = 0;
+                str = initialStr;
+                valid = false;
+            }
+        }
+
+        public void setValue(string s)
+        {
+            try
+            {
+                value = double.Parse(s);
+                str = s;
+                valid = true;
+            }
+            catch (Exception)
+            {
+                str = s;
+                valid = false;
+            }
+        }
+
+        public override string ToString()
+        {
+            if (valid)
+                return string.Format(format, value);
+            else
+                return str;
+        }
+
+        public static implicit operator string(EditableValue e)
+        {
+            return e.ToString();
+        }
+
+        public static implicit operator EditableValue(string s)
+        {
+            return new EditableValue(s);
+        }
+
+        public static implicit operator EditableValue(double v)
+        {
+            return new EditableValue(v);
+        }
+
+        public static implicit operator EditableValue(float v)
+        {
+            return new EditableValue(v);
+        }
+
+        public static implicit operator double(EditableValue e)
+        {
+            return e.value;
+        }
+
+        public static implicit operator float(EditableValue e)
+        {
+            return (float)e.value;
+        }
+
+    }
+
     public static class MuUtils
     {
         public static float ResourceDensity(int type)

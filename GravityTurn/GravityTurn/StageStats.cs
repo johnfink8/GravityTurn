@@ -95,7 +95,7 @@ namespace GravityTurn
                 ThreadPool.QueueUserWorkItem(RunSimulation, sims);
                 //RunSimulation(sims);
             }
-            catch (Exception e)
+            catch (Exception)
             {
 
                 // Stop timing the simulation
