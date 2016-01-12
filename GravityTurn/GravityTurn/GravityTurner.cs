@@ -27,6 +27,7 @@ namespace GravityTurn
         EditableValue Sensitivity = new EditableValue(0.2);
         EditableValue Roll = new EditableValue(-90);
         EditableValue DestinationHeight = new EditableValue(80);
+        EditableValue PressureCutoff = new EditableValue(2500);
 
         float NeutralThrottle = 0.5f;
         double PrevTime = 0;
@@ -44,6 +45,7 @@ namespace GravityTurn
         string Message = "";
         MechjebWrapper mucore = new MechjebWrapper();
         bool Launching = false;
+        double maxQ = 0;
 
 #if DEBUG            
         public static void Log(string message, [CallerMemberName] string callingMethod = "",
@@ -214,6 +216,11 @@ namespace GravityTurn
             helpButton("If you want a particular side of your ship to face downwards.  Shouldn't matter for most ships.");
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
+            GUILayout.Label("Pressure Cutoff", GUILayout.ExpandWidth(false));
+            PressureCutoff.setValue(GUILayout.TextField(PressureCutoff.ToString(), GUILayout.Width(40)));
+            helpButton("Dynamic pressure where we change from Surface to Orbital velocity tracking");
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
             EnableStaging = GUILayout.Toggle(EnableStaging,"Auto-Staging");
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
@@ -225,6 +232,7 @@ namespace GravityTurn
             {
                 if (Staging.CurrentStage == Staging.StageCount)
                     Staging.ActivateNextStage();
+                maxQ = 0;
                 Launching = true;
             }
             GUILayout.Label(Message);
@@ -350,6 +358,8 @@ namespace GravityTurn
             }
             else
             {
+                if (maxQ < vesselState.dynamicPressure)
+                    maxQ = vesselState.dynamicPressure;
                 if (EnableStaging)
                     stage.Update();
                 if (vessel.orbit.ApA < DestinationHeight * 1000)
@@ -371,8 +381,8 @@ namespace GravityTurn
                     attitude.attitudeTo(Quaternion.Euler(-90 + TurnAngle, 90, Roll), AttitudeReference.SURFACE_NORTH, this);
                     PitchSet = true;
                 }
-                else if (vessel.altitude < vessel.mainBody.atmosphereDepth * 0.5)
-                {
+                else if (vesselState.dynamicPressure > maxQ * 0.5 || vesselState.dynamicPressure > PressureCutoff)
+                { // Still ascending, or not yet below the cutoff pressure
                     attitude.attitudeTo(Quaternion.Euler(0 - PitchAdjustment, 0, Roll), AttitudeReference.SURFACE_VELOCITY, this);
                 }
                 else
