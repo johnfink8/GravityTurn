@@ -35,6 +35,8 @@ namespace GravityTurn
         double DragLoss = 0;
         double GravityDragLoss = 0;
         double FlyTimeInterval = 0;
+        double VectorLoss = 0;
+        double TotalBurn = 0;
         MovingAverage Throttle = new MovingAverage(10, 1);
         private float lastTimeMeasured = 0.0f;
         public VesselState vesselState = null;
@@ -106,6 +108,7 @@ namespace GravityTurn
             FlyTimeInterval = Time.time;
             maxQ = 0;
             Message = "";
+            VectorLoss = 0;
         }
 
         private void CreateButtonIcon()
@@ -423,19 +426,26 @@ namespace GravityTurn
         void CalculateLosses()
         {
             double fwdAcceleration = Vector3d.Dot(vessel.acceleration, vesselState.forward.normalized);
-            //double GravityDrag = (vesselState.thrustCurrent / vesselState.mass) - fwdAcceleration - vesselState.drag;
-            double GravityDrag = Vector3d.Dot(vesselState.gravityForce, -vesselState.forward);
-            VelocityLost += ((vesselState.thrustCurrent / vesselState.mass) - fwdAcceleration) * (Time.time - FlyTimeInterval);
-            DragLoss += vesselState.drag * (Time.time - FlyTimeInterval);
-            GravityDragLoss += GravityDrag * (Time.time - FlyTimeInterval);
-            double GravityDragLossAtAp = GravityDragLoss + vessel.obt_velocity.magnitude - vessel.orbit.getOrbitalVelocityAtUT(vessel.orbit.timeToAp + Planetarium.GetUniversalTime()).magnitude;
+            double GravityDrag = Vector3d.Dot(vesselState.gravityForce, -vessel.obt_velocity.normalized);
+            double TimeInterval = Time.time - FlyTimeInterval;
             FlyTimeInterval = Time.time;
-            Message = string.Format("Air Drag: {0:0.00}\nGravityDrag: {1:0.00}\nAir Drag Loss: {2:0.00}\nGravity Drag Loss: {3:0.00} -> {4:0.00} (at AP)\nTotal Loss: {5:0.00}",
+            VelocityLost += ((vesselState.thrustCurrent / vesselState.mass) - fwdAcceleration) * TimeInterval;
+            DragLoss += vesselState.drag * TimeInterval;
+            GravityDragLoss += GravityDrag * TimeInterval;
+            double VectorDrag = vesselState.thrustCurrent - Vector3d.Dot(vesselState.thrustVectorLastFrame, vessel.obt_velocity.normalized);
+            VectorDrag = VectorDrag / vesselState.mass;
+            VectorLoss += VectorDrag * TimeInterval;
+            TotalBurn += vesselState.thrustCurrent / vesselState.mass * TimeInterval;
+            double GravityDragLossAtAp = GravityDragLoss + vessel.obt_velocity.magnitude - vessel.orbit.getOrbitalVelocityAtUT(vessel.orbit.timeToAp + Planetarium.GetUniversalTime()).magnitude;
+            Message = string.Format("Air Drag: {0:0.00}m/s\xb2\nGravityDrag: {1:0.00}m/s\xb2\nAir Drag Loss: {2:0.00}m/s\nGravity Drag Loss: {3:0.00} -> {4:0.00}m/s (at AP)\nThrust Vector Drag: {5:0.00}m/s\xb2\nTotal Vector Loss: {6:0.00}m/s\nTotal Loss: {7:0.00}m/s\nTotal Burn: {8:0.0}",
                 vesselState.drag,
                 GravityDrag,
                 DragLoss,
                 GravityDragLoss, GravityDragLossAtAp,
-                DragLoss + GravityDragLossAtAp
+                VectorDrag,
+                VectorLoss,
+                DragLoss + GravityDragLossAtAp + VectorLoss,
+                TotalBurn
                 );
         }
 
