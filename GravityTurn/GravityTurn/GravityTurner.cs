@@ -32,6 +32,8 @@ namespace GravityTurn
         float NeutralThrottle = 0.5f;
         double PrevTime = 0;
         double VelocityLost = 0;
+        double DragLoss = 0;
+        double GravityDragLoss = 0;
         double FlyTimeInterval = 0;
         MovingAverage Throttle = new MovingAverage(10, 1);
         private float lastTimeMeasured = 0.0f;
@@ -94,11 +96,23 @@ namespace GravityTurn
             vessel.ActionGroups.SetGroup(KSPActionGroup.SAS, true);
         }
 
+        void InitializeNumbers()
+        {
+            NeutralThrottle = 0.5f;
+            PrevTime = 0;
+            VelocityLost = 0;
+            DragLoss = 0;
+            GravityDragLoss = 0;
+            FlyTimeInterval = Time.time;
+            maxQ = 0;
+            Message = "";
+        }
+
         private void CreateButtonIcon()
         {
             button = ApplicationLauncher.Instance.AddModApplication(
                 SetWindowOpen,
-                Kill,
+                () => WindowVisible = false,
                 null,
                 null,
                 null,
@@ -235,7 +249,7 @@ namespace GravityTurn
             {
                 if (Staging.CurrentStage == Staging.StageCount)
                     Staging.ActivateNextStage();
-                maxQ = 0;
+                InitializeNumbers();
                 Launching = true;
             }
             if (Launching && GUILayout.Button("Abort!"))
@@ -402,17 +416,27 @@ namespace GravityTurn
                 attitude.Drive(s);
                 if (Math.Abs(s.roll) > 0.2)
                     s.roll *= 0.2f;
-                double fwdAcceleration = Vector3d.Dot(vessel.acceleration, vesselState.forward.normalized);
-                VelocityLost += ((vesselState.thrustCurrent / vesselState.mass) - fwdAcceleration) * (Time.time - FlyTimeInterval);
-                FlyTimeInterval = Time.time;
-                Message = string.Format("Thrust: {0:0.00}kN\nForward Accel: {1:0.00}m/s\xB2\nMass:{2:0.00}kg\nNet Loss: {3:0.00}m/s\xB2\nTotal Loss: {4:0.00}m/s", 
-                    vesselState.thrustCurrent,
-                    fwdAcceleration,
-                    vesselState.mass,
-                    (vesselState.thrustCurrent / vesselState.mass) - fwdAcceleration,
-                    VelocityLost
-                    );
+                CalculateLosses();
             }
+        }
+
+        void CalculateLosses()
+        {
+            double fwdAcceleration = Vector3d.Dot(vessel.acceleration, vesselState.forward.normalized);
+            //double GravityDrag = (vesselState.thrustCurrent / vesselState.mass) - fwdAcceleration - vesselState.drag;
+            double GravityDrag = Vector3d.Dot(vesselState.gravityForce, -vesselState.forward);
+            VelocityLost += ((vesselState.thrustCurrent / vesselState.mass) - fwdAcceleration) * (Time.time - FlyTimeInterval);
+            DragLoss += vesselState.drag * (Time.time - FlyTimeInterval);
+            GravityDragLoss += GravityDrag * (Time.time - FlyTimeInterval);
+            double GravityDragLossAtAp = GravityDragLoss + vessel.obt_velocity.magnitude - vessel.orbit.getOrbitalVelocityAtUT(vessel.orbit.timeToAp + Planetarium.GetUniversalTime()).magnitude;
+            FlyTimeInterval = Time.time;
+            Message = string.Format("Air Drag: {0:0.00}\nGravityDrag: {1:0.00}\nAir Drag Loss: {2:0.00}\nGravity Drag Loss: {3:0.00} -> {4:0.00} (at AP)\nTotal Loss: {5:0.00}",
+                vesselState.drag,
+                GravityDrag,
+                DragLoss,
+                GravityDragLoss, GravityDragLossAtAp,
+                DragLoss + GravityDragLossAtAp
+                );
         }
 
         void OnDestroy()
