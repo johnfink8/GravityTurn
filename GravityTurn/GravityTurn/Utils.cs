@@ -8,12 +8,14 @@ using System.Reflection;
 
 namespace GravityTurn
 {
-    public struct EditableValue
+    public class EditableValue
     {
-        public double value;
-        public bool valid;
-        string format;
-        string str;
+        [Persistent]
+        public double value = 0;
+        public bool valid = true;
+        public String format = "{0:0.00}";
+        public string str = "0";
+
         public EditableValue(double initialValue,string printFormat="{0:0.00}")
         {
             value = initialValue;
