@@ -98,6 +98,32 @@ namespace GravityTurn
 
     public static class MuUtils
     {
+        public static double HeadingForLaunchInclination(CelestialBody body, double inclinationDegrees, double latitudeDegrees, double orbVel)
+        {
+            double cosDesiredSurfaceAngle = Math.Cos(inclinationDegrees * MathExtensions.Deg2Rad) / Math.Cos(latitudeDegrees * MathExtensions.Deg2Rad);
+            if (Math.Abs(cosDesiredSurfaceAngle) > 1.0)
+            {
+                //If inclination < latitude, we get this case: the desired inclination is impossible
+                if (Math.Abs(MuUtils.ClampDegrees180(inclinationDegrees)) < 90) return 90;
+                else return 270;
+            }
+            else
+            {
+                double betaFixed = Math.Asin(cosDesiredSurfaceAngle);
+
+                double velLaunchSite = body.Radius * body.angularVelocity.magnitude * Math.Cos(latitudeDegrees * MathExtensions.Deg2Rad);
+
+                double vx = orbVel * Math.Sin(betaFixed) - velLaunchSite;
+                double vy = orbVel * Math.Cos(betaFixed);
+
+                double angle = MathExtensions.Rad2Deg * Math.Atan(vx / vy);
+
+                if (inclinationDegrees < 0) angle = 180 - angle;
+
+                return MuUtils.ClampDegrees360(angle);
+            }
+        }
+        
         public static float ResourceDensity(int type)
         {
             return PartResourceLibrary.Instance.GetDefinition(type).density;

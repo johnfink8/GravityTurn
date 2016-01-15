@@ -40,6 +40,8 @@ namespace GravityTurn
         [Persistent]
         EditableValue PressureCutoff = new EditableValue(2500);
         [Persistent]
+        EditableValue Inclination = new EditableValue(0);
+        [Persistent]
         bool EnableStaging = true;
 
         float NeutralThrottle = 0.5f;
@@ -177,6 +179,17 @@ namespace GravityTurn
                 TurnAngle = Mathf.Clamp((float)(10 + TWR * 9), 10, 80);
                 StartSpeed = Mathf.Clamp((float)(100 - TWR * 45), 10, 100);
             }
+            APTimeFinish = 40;
+            APTimeStart = 40;
+            Sensitivity = 0.2;
+            if (vessel.mainBody.atmosphereDepth > 0)
+                DestinationHeight = vessel.mainBody.atmosphereDepth + 10000;
+            else
+                DestinationHeight = vessel.mainBody.timeWarpAltitudeLimits[1] + 10000;
+            DestinationHeight /= 1000;
+            Roll = -90;
+            Inclination = 0;
+            PressureCutoff = 2500;
             SaveParameters();
         }
 
@@ -205,6 +218,11 @@ namespace GravityTurn
             GUI.DragWindow(new Rect(0, 0, 10000, 20));
 
         }
+
+        void ItemLabel(string labelText)
+        {
+            GUILayout.Label(labelText, GUILayout.ExpandWidth(false), GUILayout.Width(windowPos.width / 2));
+        }
         private void WindowGUI(int windowID)
         {
             GUIStyle mySty = new GUIStyle(GUI.skin.button);
@@ -214,44 +232,48 @@ namespace GravityTurn
             mySty.padding = new RectOffset(8, 8, 8, 8);
             GUILayout.BeginVertical();
             GUILayout.BeginHorizontal();
-            GUILayout.Label("Start m/s",GUILayout.ExpandWidth(false));
-            StartSpeed.setValue(GUILayout.TextField(string.Format("{0:0.0}",StartSpeed),GUILayout.Width(40)));
+            ItemLabel("Start m/s");
+            StartSpeed.setValue(GUILayout.TextField(string.Format("{0:0.0}",StartSpeed),GUILayout.Width(60)));
             helpButton("At this speed, pitch to Turn Angle to begin the gravity turn");
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
-            GUILayout.Label("Turn Angle", GUILayout.ExpandWidth(false));
-            TurnAngle.setValue(GUILayout.TextField(string.Format("{0:0.0}", TurnAngle), GUILayout.Width(40)));
+            ItemLabel("Turn Angle");
+            TurnAngle.setValue(GUILayout.TextField(string.Format("{0:0.0}", TurnAngle), GUILayout.Width(60)));
             helpButton("Angle to start turn at Start Speed.  Higher values may cause aerodynamic stress.");
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
-            GUILayout.Label("Hold AP Time Start", GUILayout.ExpandWidth(false));
-            APTimeStart.setValue(GUILayout.TextField(APTimeStart.ToString(), GUILayout.Width(40)));
+            ItemLabel("Hold AP Time Start");
+            APTimeStart.setValue(GUILayout.TextField(APTimeStart.ToString(), GUILayout.Width(60)));
             helpButton("Starting value for Time To Prograde.\nHigher values will make a steeper climb.");
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
-            GUILayout.Label("Hold AP Time Finish", GUILayout.ExpandWidth(false));
-            APTimeFinish.setValue(GUILayout.TextField(APTimeFinish.ToString(), GUILayout.Width(40)));
+            ItemLabel("Hold AP Time Finish");
+            APTimeFinish.setValue(GUILayout.TextField(APTimeFinish.ToString(), GUILayout.Width(60)));
             helpButton("AP Time will fade to this value, to vary the steepness of the ascent during the ascent.");
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
-            GUILayout.Label("Sensitivity", GUILayout.ExpandWidth(false));
-            Sensitivity.setValue(GUILayout.TextField(Sensitivity.ToString(), GUILayout.Width(40)));
+            ItemLabel("Sensitivity");
+            Sensitivity.setValue(GUILayout.TextField(Sensitivity.ToString(), GUILayout.Width(60)));
             helpButton("Will not throttle below this value.  Mostly a factor at the end of ascent.");
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
-            GUILayout.Label("Destination Height", GUILayout.ExpandWidth(false));
-            DestinationHeight.setValue(GUILayout.TextField(DestinationHeight.ToString(), GUILayout.Width(40)));
+            ItemLabel("Destination Height (km)");
+            DestinationHeight.setValue(GUILayout.TextField(DestinationHeight.ToString(), GUILayout.Width(60)));
             helpButton("Desired Apoapsis.  May not be final apoapsis after exiting atmosphere due to drag.");
-            GUILayout.Label("km", GUILayout.ExpandWidth(false));
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
-            GUILayout.Label("Roll", GUILayout.ExpandWidth(false));
-            Roll.setValue(GUILayout.TextField(Roll.ToString(), GUILayout.Width(40)));
+            ItemLabel("Roll");
+            Roll.setValue(GUILayout.TextField(Roll.ToString(), GUILayout.Width(60)));
             helpButton("If you want a particular side of your ship to face downwards.  Shouldn't matter for most ships.");
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
-            GUILayout.Label("Pressure Cutoff", GUILayout.ExpandWidth(false));
-            PressureCutoff.setValue(GUILayout.TextField(PressureCutoff.ToString(), GUILayout.Width(40)));
+            ItemLabel("Inclination");
+            Inclination.setValue(GUILayout.TextField(Inclination.ToString(), GUILayout.Width(60)));
+            helpButton("Desired orbit inclination.  Any non-zero value WILL make your launch less efficient. Final inclination will also not be perfect.  Sorry about that, predicting coriolis is hard.");
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            ItemLabel("Pressure Cutoff");
+            PressureCutoff.setValue(GUILayout.TextField(PressureCutoff.ToString(), GUILayout.Width(60)));
             helpButton("Dynamic pressure where we change from Surface to Orbital velocity tracking");
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
@@ -276,7 +298,7 @@ namespace GravityTurn
             }
             GUILayout.Label(Message);
             GUILayout.EndVertical();
-            GUI.DragWindow(new Rect(0, 0, 10000, 20));
+            GUI.DragWindow(new Rect(0, 0, 10000, 2000));
             double StopHeight = vessel.mainBody.atmosphereDepth;
             if (StopHeight <= 0)
                 StopHeight = DestinationHeight*1000;
@@ -382,6 +404,43 @@ namespace GravityTurn
             vessel.ActionGroups.SetGroup(KSPActionGroup.SAS, false);
         }
 
+        private float LaunchHeading()
+        {
+            return (float)MuUtils.HeadingForLaunchInclination(vessel.mainBody, Inclination, vessel.latitude, vesselState.orbitalVelocity.magnitude);
+        }
+
+        private float ProgradeHeading(bool surface = true)
+        {
+            Quaternion current;
+            if (surface)
+                current = Quaternion.LookRotation(vesselState.surfaceVelocity.normalized, vesselState.up) * Quaternion.Euler(0, 0, Roll);
+            else
+                current = Quaternion.LookRotation(vesselState.orbitalVelocity.normalized, vesselState.up) * Quaternion.Euler(0, 0, Roll);
+            //current *= vesselState.rotationSurface.Inverse();
+            return (float)Vector3d.Angle(Vector3d.Exclude(vesselState.up, vesselState.surfaceVelocity), vesselState.north);
+        }
+
+        private Vector3d horizontal(bool surface = true)
+        {
+            if (surface)
+                return Vector3d.Exclude(vesselState.up, vesselState.surfaceVelocity.normalized);
+            else
+                return Vector3d.Exclude(vesselState.up, vesselState.orbitalVelocity.normalized);
+        }
+
+        private float ProgradePitch(bool surface=true)
+        {
+            if (surface)
+                return -(float)Vector3.Angle( horizontal(surface), vesselState.surfaceVelocity.normalized);
+            else
+                return -(float)Vector3.Angle( horizontal(surface), vesselState.orbitalVelocity.normalized);
+        }
+
+        Quaternion RollRotation()
+        {
+            return Quaternion.AngleAxis(Roll, Vector3.forward);
+        }
+
         private void fly(FlightCtrlState s)
         {
             if (!Launching)
@@ -409,32 +468,31 @@ namespace GravityTurn
                 RelativeVelocity = vesselState.surfaceVelocity;
                 if (InPitchProgram && PitchSet)
                 {
-                    if (attitude.surfaceVelocityAngleFromTarget() < 0.5)
+                    if (ProgradePitch()+90 >= TurnAngle)
                         InPitchProgram = false;
                 }
                 if (vessel.speed < StartSpeed)
                 {
                     InPitchProgram = true;
-                    attitude.attitudeTo(Quaternion.Euler(-90, 90, Roll), AttitudeReference.SURFACE_NORTH, this);
+                    attitude.attitudeTo(Quaternion.Euler(-90, LaunchHeading(), 0) * RollRotation(), AttitudeReference.SURFACE_NORTH, this);
                 }
                 else if (InPitchProgram)
                 {
-                    attitude.attitudeTo(Quaternion.Euler(-90 + TurnAngle, 90, Roll), AttitudeReference.SURFACE_NORTH, this);
+                    attitude.attitudeTo(Quaternion.Euler(-90 + TurnAngle, LaunchHeading(), 0) * RollRotation(), AttitudeReference.SURFACE_NORTH, this);
                     PitchSet = true;
                 }
                 else if (vesselState.dynamicPressure > maxQ * 0.5 || vesselState.dynamicPressure > PressureCutoff)
                 { // Still ascending, or not yet below the cutoff pressure
-                    attitude.attitudeTo(Quaternion.Euler(0 - PitchAdjustment, 0, Roll), AttitudeReference.SURFACE_VELOCITY, this);
+                    attitude.attitudeTo(Quaternion.Euler(ProgradePitch() - PitchAdjustment, LaunchHeading(), 0) * RollRotation(), AttitudeReference.SURFACE_NORTH, this);
                 }
                 else
                 {
+                    //attitude.attitudeTo(Quaternion.Euler(ProgradePitch(false) - PitchAdjustment, LaunchHeading(), 0) * RollRotation(), AttitudeReference.SURFACE_NORTH, this);
                     attitude.attitudeTo(Quaternion.Euler(0 - PitchAdjustment, 0, Roll), AttitudeReference.ORBIT, this);
                     RelativeVelocity = vesselState.orbitalVelocity;
                 }
                 attitude.enabled = true;
                 attitude.Drive(s);
-                if (Math.Abs(s.roll) > 0.2)
-                    s.roll *= 0.2f;
                 CalculateLosses();
             }
         }
@@ -454,9 +512,9 @@ namespace GravityTurn
             TotalBurn += vesselState.thrustCurrent / vesselState.mass * TimeInterval;
             double GravityDragLossAtAp = GravityDragLoss + vessel.obt_velocity.magnitude - vessel.orbit.getOrbitalVelocityAtUT(vessel.orbit.timeToAp + Planetarium.GetUniversalTime()).magnitude;
             Message = string.Format(
-@"Air Drag: {0:0.00}m/s\xb2
-GravityDrag: {1:0.00}m/s\xb2
-Thrust Vector Drag: {5:0.00}m/s\xb2
+@"Air Drag: {0:0.00}m/s²
+GravityDrag: {1:0.00}m/s²
+Thrust Vector Drag: {5:0.00}m/s²
 Air Drag Loss: {2:0.00}m/s
 Gravity Drag Loss: {3:0.00} -> {4:0.00}m/s (at AP)
 Total Vector Loss: {6:0.00}m/s
