@@ -9,6 +9,18 @@ namespace GravityTurn
 {
     public static class VesselExtensions
     {
+
+        public static Part CriticalHeatPart(this Vessel v)
+        {
+            Part hottest = null;
+            foreach (Part p in v.parts)
+            {
+                if (hottest == null || p.CriticalHeat() > hottest.CriticalHeat())
+                    hottest = p;
+            }
+            return hottest;
+        }
+
         public static bool LiftedOff(this Vessel v)
         {
             return Staging.CurrentStage != Staging.StageCount;

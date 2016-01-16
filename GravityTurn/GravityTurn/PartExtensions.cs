@@ -107,5 +107,14 @@ namespace GravityTurn
             }
             return false;
         }
+
+        public static double CriticalHeat(this Part p)
+        {
+            double skin = p.skinTemperature / p.skinMaxTemp;
+            double intern = p.temperature / p.maxTemp;
+            if (skin > intern)
+                return skin;
+            return intern;
+        }
     }
 }

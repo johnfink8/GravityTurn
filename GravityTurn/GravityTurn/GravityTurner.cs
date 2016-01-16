@@ -17,30 +17,32 @@ namespace GravityTurn
         protected Rect windowPos = new Rect(50, 100, 300, 200);
         protected Rect helpWindowPos;
         protected bool helpWindowOpen = false;
+        protected Rect DebugWindowPos = new Rect(500, 100, 300, 300);
         protected string helpWindowText = "";
+        protected string DebugText = "";
         ApplicationLauncherButton button;
         bool WindowVisible = false;
 
         [Persistent]
-        EditableValue StartSpeed = new EditableValue(100);
+        public EditableValue StartSpeed = new EditableValue(100);
         [Persistent]
-        EditableValue HoldAPTime = new EditableValue(50);
+        public EditableValue HoldAPTime = new EditableValue(50);
         [Persistent]
-        EditableValue APTimeStart = new EditableValue(40);
+        public EditableValue APTimeStart = new EditableValue(40);
         [Persistent]
-        EditableValue APTimeFinish = new EditableValue(40);
+        public EditableValue APTimeFinish = new EditableValue(40);
         [Persistent]
-        EditableValue TurnAngle = new EditableValue(10);
+        public EditableValue TurnAngle = new EditableValue(10);
         [Persistent]
-        EditableValue Sensitivity = new EditableValue(0.2);
+        public EditableValue Sensitivity = new EditableValue(0.2);
         [Persistent]
-        EditableValue Roll = new EditableValue(-90);
+        public EditableValue Roll = new EditableValue(-90);
         [Persistent]
-        EditableValue DestinationHeight = new EditableValue(80);
+        public EditableValue DestinationHeight = new EditableValue(80);
         [Persistent]
-        EditableValue PressureCutoff = new EditableValue(2500);
+        public EditableValue PressureCutoff = new EditableValue(2500);
         [Persistent]
-        EditableValue Inclination = new EditableValue(0);
+        public EditableValue Inclination = new EditableValue(0);
         [Persistent]
         bool EnableStaging = true;
 
@@ -52,6 +54,8 @@ namespace GravityTurn
         double FlyTimeInterval = 0;
         double VectorLoss = 0;
         double TotalBurn = 0;
+        public double HorizontalDistance = 0;
+        public double MaxThrust = 0;
         MovingAverage Throttle = new MovingAverage(10, 1);
         private float lastTimeMeasured = 0.0f;
         public VesselState vesselState = null;
@@ -67,6 +71,8 @@ namespace GravityTurn
         bool Launching = false;
         double maxQ = 0;
         Vector3d RelativeVelocity;
+        MovingAverage DragRatio = new MovingAverage();
+        FlightMap flightmap = null;
 
 #if DEBUG            
         public static void Log(string message, [CallerMemberName] string callingMethod = "",
@@ -124,6 +130,9 @@ namespace GravityTurn
             maxQ = 0;
             Message = "";
             VectorLoss = 0;
+            HorizontalDistance = 0;
+            MaxThrust = GetMaxThrust();
+            flightmap = new FlightMap(this);
         }
 
         private void CreateButtonIcon()
@@ -156,6 +165,25 @@ namespace GravityTurn
             return false;
         }
 
+        double TWRWeightedAverage(double MinimumDeltaV)
+        {
+            stagestats.RequestUpdate(this);
+            double TWR = 0;
+            double deltav = 0;
+            for (int i = stagestats.atmoStats.Length - 1; i >= 0; i--)
+            {
+                double stagetwr = (stagestats.atmoStats[i].StartTWR(vessel.mainBody.GeeASL) + stagestats.atmoStats[i].MaxTWR(vessel.mainBody.GeeASL))/2;
+                if (stagetwr > 0)
+                {
+                    TWR += stagetwr * stagestats.atmoStats[i].deltaV;
+                    deltav += stagestats.atmoStats[i].deltaV;
+                    if (deltav >= MinimumDeltaV)
+                        break;
+                }
+            }
+            return TWR / deltav;
+        }
+
         void CalculateSettings()
         {
             stagestats.RequestUpdate(this);
@@ -163,7 +191,6 @@ namespace GravityTurn
             for (int i = stagestats.atmoStats.Length - 1; i >= 0; i--)
             {
                 double stagetwr = stagestats.atmoStats[i].StartTWR(vessel.mainBody.GeeASL);
-                Debug.Log(string.Format("Stage {0} TWR {1:0.00}", i, stagetwr));
                 if (stagetwr > 0)
                 {
                     if (StageHasSolidEngine(i))
@@ -223,8 +250,12 @@ namespace GravityTurn
         {
             GUILayout.Label(labelText, GUILayout.ExpandWidth(false), GUILayout.Width(windowPos.width / 2));
         }
+
+
         private void WindowGUI(int windowID)
         {
+            if (vessel.Landed)
+                PreflightInfo();
             GUIStyle mySty = new GUIStyle(GUI.skin.button);
             mySty.normal.textColor = mySty.focused.textColor = Color.white;
             mySty.hover.textColor = mySty.active.textColor = Color.yellow;
@@ -244,7 +275,7 @@ namespace GravityTurn
             GUILayout.BeginHorizontal();
             ItemLabel("Hold AP Time Start");
             APTimeStart.setValue(GUILayout.TextField(APTimeStart.ToString(), GUILayout.Width(60)));
-            helpButton("Starting value for Time To Prograde.\nHigher values will make a steeper climb.");
+            helpButton("Starting value for Time To Prograde.  Higher values will make a steeper climb.");
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
             ItemLabel("Hold AP Time Finish");
@@ -280,17 +311,16 @@ namespace GravityTurn
             EnableStaging = GUILayout.Toggle(EnableStaging,"Auto-Staging");
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
+            flightmap.visible = GUILayout.Toggle(flightmap.visible, "Show Launch Map");
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
             GUILayout.Label(string.Format("Time to match: {0:0.0}",HoldAPTime), GUILayout.ExpandWidth(false));
             GUILayout.EndHorizontal();
             if (vessel.Landed && !Launching && GUILayout.Button("Best Guess Settings", GUILayout.ExpandWidth(false)))
                 CalculateSettings();
             if (vessel.Landed && !Launching && GUILayout.Button("Launch!"))
             {
-                if (Staging.CurrentStage == Staging.StageCount)
-                    Staging.ActivateNextStage();
-                InitializeNumbers();
-                Launching = true;
-                SaveParameters();
+                Launch();
             }
             if (Launching && GUILayout.Button("Abort!"))
             {
@@ -309,6 +339,33 @@ namespace GravityTurn
                 HoldAPTime = Math.Min(APTimeFinish, APTimeStart);
         }
 
+        void Launch()
+        {
+            if (Staging.CurrentStage == Staging.StageCount)
+                Staging.ActivateNextStage();
+            InitializeNumbers();
+            Launching = true;
+            SaveParameters();
+        }
+
+        double GetMaxThrust()
+        {
+            double thrust = 0;
+            FuelFlowSimulation.Stats[] stats;
+            if (vessel.mainBody.atmosphere && vessel.altitude < vessel.mainBody.atmosphereDepth)
+                stats = stagestats.atmoStats;
+            else
+                stats = stagestats.vacStats;
+            for (int i = stats.Length - 1; i >= 0; i--)
+            {
+                if (stats[i].startThrust > thrust)
+                    thrust = stats[i].startThrust;
+            }
+            return thrust;
+        }
+
+
+
         void FixedUpdate()
         {
             stagestats.editorBody = vessel.mainBody;
@@ -316,6 +373,8 @@ namespace GravityTurn
             attitude.OnFixedUpdate();
             stagestats.OnFixedUpdate();
             stagestats.RequestUpdate(this);
+            if (flightmap != null && Launching)
+                flightmap.UpdateMap(vessel);
         }
 
         void Update()
@@ -331,6 +390,9 @@ namespace GravityTurn
                 windowPos = GUILayout.Window(1, windowPos, WindowGUI, "GravityTurn", GUILayout.MinWidth(300));
                 if (helpWindowOpen)
                     helpWindowPos = GUILayout.Window(2, helpWindowPos, HelpWindowGUI, "GravityTurn Help", GUILayout.MinWidth(300));
+                //DebugWindowPos = GUILayout.Window(3, DebugWindowPos, DebugGUI, "FlightMap");
+                if (flightmap != null && flightmap.visible)
+                    flightmap.windowPos = GUILayout.Window(4, flightmap.windowPos, flightmap.WindowGUI, "FlightMap");
             }
 
         }
@@ -497,12 +559,22 @@ namespace GravityTurn
             }
         }
 
+        void PreflightInfo()
+        {
+            Message = string.Format("Drag area {0:0.00}", vesselState.areaDrag);
+            Message += string.Format("\nMass {0:0.00}", vesselState.mass);
+            DragRatio.value = vesselState.areaDrag/vesselState.mass;
+            Message += string.Format("\narea/mass {0:0.00}", DragRatio.value);
+            Message += string.Format("\nGuess TWR {0:0.00}", TWRWeightedAverage(2*vessel.mainBody.GeeASL*DestinationHeight));
+        }
+
         void CalculateLosses()
         {
             double fwdAcceleration = Vector3d.Dot(vessel.acceleration, vesselState.forward.normalized);
             double GravityDrag = Vector3d.Dot(vesselState.gravityForce, -vessel.obt_velocity.normalized);
             double TimeInterval = Time.time - FlyTimeInterval;
             FlyTimeInterval = Time.time;
+            HorizontalDistance += Vector3d.Exclude(vesselState.up, vesselState.orbitalVelocity).magnitude * TimeInterval;
             VelocityLost += ((vesselState.thrustCurrent / vesselState.mass) - fwdAcceleration) * TimeInterval;
             DragLoss += vesselState.drag * TimeInterval;
             GravityDragLoss += GravityDrag * TimeInterval;
