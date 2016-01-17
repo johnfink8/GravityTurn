@@ -9,6 +9,36 @@ namespace GravityTurn
 {
     public static class VesselExtensions
     {
+        public static Vector3d up(this Vessel vessel)
+        {
+            return (vessel.CoM - vessel.mainBody.position).normalized;
+        }
+
+        public static Vector3d horizontal(this Vessel vessel, bool surface = true)
+        {
+            if (surface)
+                return Vector3d.Exclude(vessel.up(), vessel.srf_velocity.normalized);
+            else
+                return Vector3d.Exclude(vessel.up(), vessel.obt_velocity.normalized);
+        }
+
+        public static float ProgradePitch(this Vessel vessel, bool surface = true)
+        {
+            if (surface)
+                return -(float)Vector3.Angle(vessel.horizontal(surface), vessel.srf_velocity.normalized);
+            else
+                return -(float)Vector3.Angle(vessel.horizontal(surface), vessel.obt_velocity.normalized);
+        }
+
+        public static Vector3 forward(this Vessel v)
+        {
+            return v.GetTransform().up;
+        }
+
+        public static float Pitch(this Vessel v)
+        {
+            return -Vector3.Angle(v.horizontal(true), v.forward());   
+        }
 
         public static Part CriticalHeatPart(this Vessel v)
         {
