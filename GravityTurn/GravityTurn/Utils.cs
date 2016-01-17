@@ -408,6 +408,11 @@ namespace GravityTurn
             return v.value;
         }
 
+        public static implicit operator float(MovingAverage v)
+        {
+            return (float)v.value;
+        }
+
         public override string ToString()
         {
             return value.ToString();

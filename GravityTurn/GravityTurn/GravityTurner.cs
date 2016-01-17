@@ -65,7 +65,7 @@ namespace GravityTurn
         bool InPitchProgram = false;
         bool PitchSet = false;
         StageStats stagestats = null;
-        float PitchAdjustment = 0;
+        MovingAverage PitchAdjustment = new MovingAverage(4, 0);
         string Message = "";
         MechjebWrapper mucore = new MechjebWrapper();
         bool Launching = false;
@@ -73,18 +73,14 @@ namespace GravityTurn
         Vector3d RelativeVelocity;
         MovingAverage DragRatio = new MovingAverage();
         FlightMap flightmap = null;
+        LaunchSimulator simulator = new LaunchSimulator();
 
-#if DEBUG            
-        public static void Log(string message, [CallerMemberName] string callingMethod = "",
-         [CallerFilePath] string callingFilePath = "",
-         [CallerLineNumber] int callingFileLineNumber = 0)
-        {
-            Debug.Log(string.Format("{0} - {1} - {2}: {3}", callingMethod, callingFilePath, callingFileLineNumber, message));
-#else
         public static void Log(string message)
         {
-
+#if DEBUG
+            //Debug.Log(message);
 #endif
+
         }
 
 
@@ -405,8 +401,10 @@ namespace GravityTurn
         private float MaxAngle()
         {
             float angle = 100000 / (float)vesselState.dynamicPressure;
-            if (angle > 35)
-                return 35;
+            float vertical = 90 + vessel.Pitch();
+            angle = Mathf.Clamp(angle, 0, 35);
+            if (angle > vertical)
+                return vertical;
             return angle;
         }
 
@@ -414,8 +412,6 @@ namespace GravityTurn
         {
             if (vessel.speed < StartSpeed)
                 Throttle.value = 1.0f;
-            else if (timeToAP > vessel.orbit.timeToPe) // We're falling
-                Throttle.force(1.0f);
             else
             {
                 if (timeToAP > vessel.orbit.timeToPe) // We're falling
@@ -427,7 +423,7 @@ namespace GravityTurn
                 if (Math.Abs(timeToAP - HoldAPTime) < 0.1)
                 {
                     if (PitchAdjustment > 0)
-                        PitchAdjustment -= 0.1f;
+                        PitchAdjustment.value -= 0.1f;
                     else
                         Throttle.force(NeutralThrottle);
                 }
@@ -436,23 +432,28 @@ namespace GravityTurn
                     if (Throttle.value >= 1 && timeToAP < PrevTime)
                     {
                         NeutralThrottle = 1;
-                        if (vessel.Pitch() - PitchAdjustment - 0.1f >= -89)
-                            PitchAdjustment += 0.1f;
+                        PitchAdjustment.value += 0.1f;
                     }
                     Throttle.value += diff;
+
+                    if (0 < (timeToAP - HoldAPTime) / TimeSpeed && (timeToAP - HoldAPTime) / TimeSpeed < 10)  // We will reach desired AP time in <10 second
+                    {
+                        Debug.Log(string.Format("Time {0:0.0} Speed {1:0.00}", timeToAP, TimeSpeed));
+                        PitchAdjustment.value -= 0.1f;
+                    }
                 }
                 else if (timeToAP > HoldAPTime)
                 {
                     if (PitchAdjustment > 0)
-                        PitchAdjustment -= 0.1f;
+                        PitchAdjustment.value -= 0.1f;
                     else
                         Throttle.value -= diff;
                 }
             }
             if (PitchAdjustment < 0)
-                PitchAdjustment = 0;
+                PitchAdjustment.value = 0;
             if (PitchAdjustment > MaxAngle())
-                PitchAdjustment = MaxAngle();
+                PitchAdjustment.value = MaxAngle();
             PrevTime = vessel.orbit.timeToAp;
             lastTimeMeasured = Time.time;
             if (Throttle.value < Sensitivity)
@@ -559,6 +560,7 @@ namespace GravityTurn
             DragRatio.value = vesselState.areaDrag/vesselState.mass;
             info += string.Format("\narea/mass {0:0.00}", DragRatio.value);
             info += string.Format("\nGuess TWR {0:0.00}", TWRWeightedAverage(2 * vessel.mainBody.GeeASL * DestinationHeight));
+            info += string.Format("\nPitch {0:0.00}", vessel.Pitch());
             return info;
         }
 
