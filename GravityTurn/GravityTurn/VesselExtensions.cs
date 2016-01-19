@@ -9,9 +9,33 @@ namespace GravityTurn
 {
     public static class VesselExtensions
     {
+        public static bool StageHasSolidEngine(this Vessel vessel,int inverseStage)
+        {
+            foreach (Part p in vessel.parts)
+            {
+                if (p.inverseStage == inverseStage)
+                {
+                    foreach (ModuleEngines e in p.FindModulesImplementing<ModuleEngines>())
+                    {
+                        if (e.engineType == EngineType.SolidBooster)
+                            return true;
+                    }
+                }
+            }
+            return false;
+        }
+
         public static Vector3d up(this Vessel vessel)
         {
             return (vessel.CoM - vessel.mainBody.position).normalized;
+        }
+
+        public static float DragCubeCoefForward(this Vessel vessel)
+        {
+            float coef = 0;
+            foreach (Part p in vessel.parts)
+                coef += p.DragCubes.GetCubeCoeffDir(-vessel.forward());
+            return coef;
         }
 
         public static Vector3d horizontal(this Vessel vessel, bool surface = true)
