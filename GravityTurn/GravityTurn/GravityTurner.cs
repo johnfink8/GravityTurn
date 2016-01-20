@@ -109,10 +109,12 @@ namespace GravityTurn
         }
         private void SetWindowOpen()
         {
-            LoadParameters();
-            getVessel.OnFlyByWire += new FlightInputCallback(fly);
             WindowVisible = true;
-            InitializeNumbers(getVessel);
+            if (!Launching)
+            {
+                LoadParameters();
+                InitializeNumbers(getVessel);
+            }
         }
 
         void InitializeNumbers(Vessel vessel)
@@ -128,7 +130,11 @@ namespace GravityTurn
             VectorLoss = 0;
             HorizontalDistance = 0;
             MaxThrust = GetMaxThrust(vessel);
+            bool openFlightmap = false;
+            if (flightmap != null)
+                openFlightmap = flightmap.visible;
             flightmap = new FlightMap(this);
+            flightmap.visible = openFlightmap;
         }
 
         private void CreateButtonIcon()
@@ -328,6 +334,7 @@ namespace GravityTurn
             if (Staging.CurrentStage == Staging.StageCount)
                 Staging.ActivateNextStage();
             InitializeNumbers(getVessel);
+            getVessel.OnFlyByWire += new FlightInputCallback(fly);
             Launching = true;
             SaveParameters();
         }
@@ -452,7 +459,6 @@ namespace GravityTurn
         {
             Launching = false;
             getVessel.OnFlyByWire -= new FlightInputCallback(fly);
-            //WindowVisible = false;
             FlightInputHandler.state.mainThrottle = 0;
             attitude.enabled = false;
             getVessel.ActionGroups.SetGroup(KSPActionGroup.SAS, false);
@@ -484,10 +490,10 @@ namespace GravityTurn
         {
             Vessel vessel = getVessel;
             if (!Launching)
-                return;
-            if (!WindowVisible) 
                 Kill();
-            else if (vessel.orbit.ApA > DestinationHeight*1000 && vessel.altitude > vessel.mainBody.atmosphereDepth)
+            //if (!WindowVisible) 
+            //    Kill();
+            else if (vessel.orbit.ApA > DestinationHeight * 1000 && vessel.altitude > vessel.mainBody.atmosphereDepth)
             {
                 if (TimeWarp.CurrentRateIndex > 0)
                     TimeWarp.SetRate(0, true);
@@ -502,13 +508,13 @@ namespace GravityTurn
                 if (EnableStaging)
                     stage.Update();
                 if (vessel.orbit.ApA < DestinationHeight * 1000)
-                    s.mainThrottle = APThrottle(vessel.orbit.timeToAp,vessel);
+                    s.mainThrottle = APThrottle(vessel.orbit.timeToAp, vessel);
                 else
                     s.mainThrottle = 0;
                 RelativeVelocity = vesselState.surfaceVelocity;
                 if (InPitchProgram && PitchSet)
                 {
-                    if (vessel.ProgradePitch()+90 >= TurnAngle)
+                    if (vessel.ProgradePitch() + 90 >= TurnAngle)
                         InPitchProgram = false;
                 }
                 if (vessel.speed < StartSpeed)
