@@ -414,14 +414,14 @@ namespace GravityTurn
                 }
                 else if (timeToAP < HoldAPTime)
                 {
-                    if (Throttle.value >= 1 && (timeToAP < PrevTime || (timeToAP - HoldAPTime) / TimeSpeed > 10))
+                    if (Throttle.value >= 1 && (timeToAP < PrevTime || (timeToAP - HoldAPTime) / TimeSpeed > 20))
                     {
                         NeutralThrottle = 1;
                         PitchAdjustment.value += 0.1f;
                     }
                     Throttle.value += diff;
 
-                    if (0 < (timeToAP - HoldAPTime) / TimeSpeed && (timeToAP - HoldAPTime) / TimeSpeed < 10)  // We will reach desired AP time in <10 second
+                    if (0 < (timeToAP - HoldAPTime) / TimeSpeed && (timeToAP - HoldAPTime) / TimeSpeed < 20)  // We will reach desired AP time in <20 second
                     {
                         Debug.Log(string.Format("Time {0:0.0} Speed {1:0.00}", timeToAP, TimeSpeed));
                         PitchAdjustment.value -= 0.1f;
