@@ -595,7 +595,6 @@ namespace GravityTurn
 
             for (int i = 0; i < vessel.parts.Count; i++)
             {
-                GravityTurner.Log("AnalyzeParts i" + i.ToString());
                 Part p = vessel.parts[i];
 
                 pureDragV += -p.dragVectorDir * p.dragScalar;
@@ -611,18 +610,15 @@ namespace GravityTurn
                 //if (p.dynamicPressurekPa > 0 && PhysicsGlobals.DragMultiplier > 0)
                 //    dragCoef += p.simDragScalar / (p.dynamicPressurekPa * PhysicsGlobals.DragMultiplier);
 
-                GravityTurner.Log("AnalyzeParts i" + i.ToString());
                 dragCoef += p.DragCubes.DragCoeff;
                 areaDrag += p.DragCubes.AreaDrag * PhysicsGlobals.DragCubeMultiplier * PhysicsGlobals.DragMultiplier;
 
-                GravityTurner.Log("AnalyzeParts i" + i.ToString());
                 for (int index = 0; index < vesselStatePartExtensions.Count; index++)
                 {
                     VesselStatePartExtension vspe = vesselStatePartExtensions[index];
                     vspe(p);
                 }
 
-                GravityTurner.Log("AnalyzeParts i" + i.ToString());
                 for (int m = 0; m < p.Modules.Count; m++)
                 {
                     PartModule pm = p.Modules[m];
@@ -674,7 +670,6 @@ namespace GravityTurn
 
                         Vector3d partPosition = p.Rigidbody.worldCenterOfMass - CoM;
 
-                        GravityTurner.Log("AnalyzeParts i" + i.ToString());
                         // Build a vector that show if the surface is left/right forward/back up/down of the CoM.
                         Vector3 relpos = vessel.transform.InverseTransformDirection(partPosition);
                         float inverted = relpos.y > 0.01 ? -1 : 1;
@@ -696,7 +691,6 @@ namespace GravityTurn
 
                         float mach = (float)p.machNumber;
 
-                        GravityTurner.Log("AnalyzeParts i" + i.ToString());
                         Vector3 posDeflection = maxRotation * liftVector;
                         float liftDotPos = Vector3.Dot(nVel, posDeflection);
                         absDot = Mathf.Abs(liftDotPos);
@@ -713,7 +707,6 @@ namespace GravityTurn
                         ctrlTorqueAvailablePos += ctrlTorquePos;
                         ctrlTorqueAvailableNeg += ctrlTorqueNeg;
 
-                        GravityTurner.Log("AnalyzeParts i" + i.ToString());
                         torqueReactionSpeed += (Mathf.Abs(cs.ctrlSurfaceRange) / cs.actuatorSpeed) * new Vector3(
                             (Mathf.Abs(ctrlTorquePos.x) + Mathf.Abs(ctrlTorqueNeg.x)) / 2f,
                             (Mathf.Abs(ctrlTorquePos.y) + Mathf.Abs(ctrlTorqueNeg.y)) / 2f,
@@ -727,7 +720,6 @@ namespace GravityTurn
                         pureDragV += liftingSurface.dragForce;
                     }
 
-                    GravityTurner.Log("AnalyzeParts i" + i.ToString());
                     for (int index = 0; index < vesselStatePartModuleExtensions.Count; index++)
                     {
                         VesselStatePartModuleExtension vspme = vesselStatePartModuleExtensions[index];
@@ -737,7 +729,6 @@ namespace GravityTurn
             }
 
 
-            GravityTurner.Log("AnalyzeParts ");
             torqueAvailable += new Vector3(
                 (Mathf.Abs(ctrlTorqueAvailablePos.x) + Mathf.Abs(ctrlTorqueAvailableNeg.x)) / 2f,
                 (Mathf.Abs(ctrlTorqueAvailablePos.y) + Mathf.Abs(ctrlTorqueAvailableNeg.y)) / 2f,
@@ -746,7 +737,6 @@ namespace GravityTurn
             if (torqueAvailable.sqrMagnitude > 0)
                 torqueReactionSpeed.Scale(torqueAvailable.Invert());
 
-            GravityTurner.Log("AnalyzeParts ");
 
             //torqueAvailable += Vector3d.Max(rcsTorqueAvailable.positive, rcsTorqueAvailable.negative); // Should we use Max or Min ?
 
@@ -754,14 +744,12 @@ namespace GravityTurn
 
             torqueFromDiffThrottle = Vector3d.Max(einfo.torqueDiffThrottle.positive, einfo.torqueDiffThrottle.negative);
             torqueFromDiffThrottle.y = 0;
-            GravityTurner.Log("AnalyzeParts ");
 
             torqueFromEngine += Vector3d.Max(einfo.torqueEngineVariable.positive, einfo.torqueEngineVariable.negative);
 
 
 
 
-            GravityTurner.Log("AnalyzeParts ");
             //MechJebCore.print(" thrustMax "  +einfo.thrustMax);
 
             thrustVectorMaxThrottle = einfo.thrustMax;
@@ -771,14 +759,12 @@ namespace GravityTurn
             pureDragV = pureDragV / mass;
             pureLiftV = pureLiftV / mass;
 
-            GravityTurner.Log("AnalyzeParts ");
             pureDrag = pureDragV.magnitude;
 
             pureLift = pureLiftV.magnitude;
 
 
             Vector3d force = pureDragV + pureLiftV;
-            GravityTurner.Log("AnalyzeParts ");
             Vector3d liftDir = -Vector3d.Cross(vessel.transform.right, -surfaceVelocity.normalized);
 
             // Drag is the part (pureDrag + PureLift) applied opposite of the surface vel
@@ -790,7 +776,6 @@ namespace GravityTurn
             // Lift is the part (pureDrag + PureLift) applied in the "Up" direction
             liftUp = Vector3d.Dot(force, up);
 
-            GravityTurner.Log("AnalyzeParts " );
             maxEngineResponseTime = einfo.maxResponseTime;
         }
 

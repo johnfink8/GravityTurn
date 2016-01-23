@@ -73,12 +73,14 @@ namespace GravityTurn
         Vector3d RelativeVelocity;
         MovingAverage DragRatio = new MovingAverage();
         FlightMap flightmap = null;
+        string LaunchName = getVessel.name;
+        CelestialBody LaunchBody = getVessel.mainBody;
         //LaunchSimulator simulator = new LaunchSimulator();
 
-        public static void Log(string message)
+        public static void Log(string format, params object[] args)
         {
 #if DEBUG
-            //Debug.Log(message);
+            Debug.Log(string.Format(format,args));
 #endif
 
         }
@@ -106,6 +108,8 @@ namespace GravityTurn
             stagestats.RequestUpdate(this);
             stagestats.OnFixedUpdate();
             CreateButtonIcon();
+            LaunchName = new string(getVessel.vesselName.ToCharArray());
+            LaunchBody = getVessel.mainBody;
         }
         private void SetWindowOpen()
         {
@@ -193,6 +197,30 @@ namespace GravityTurn
                 TurnAngle = Mathf.Clamp((float)(10 + TWR * 9), 10, 80);
                 StartSpeed = Mathf.Clamp((float)(100 - TWR * 45), 10, 100);
             }
+            FlightMap previousLaunch = FlightMap.Load(GetFlightMapFilename(), this);
+            if (previousLaunch != null)
+            {
+
+                if (previousLaunch.MaxHeat() > 0.95)
+                {
+                    Log("Previous launch had high heat, reducing aggressiveness");
+                    TurnAngle = previousLaunch.TurnAngle() * 0.95;
+                    StartSpeed = previousLaunch.StartSpeed()* 1.05 ;
+                }
+                else if (previousLaunch.MaxHeat() < 0.9)
+                {
+                    float Adjust = Mathf.Clamp(previousLaunch.MaxHeat() + (1-previousLaunch.MaxHeat())/2, 0.8f, 0.95f);
+                    Log("Previous launch seems high, increasing aggressiveness by {0:0.0}%",(1-Adjust)*100);
+                    TurnAngle = previousLaunch.TurnAngle() / Adjust;
+                    StartSpeed = previousLaunch.StartSpeed() * Adjust;
+                }
+                else
+                {
+                    Log("Previous launch seems about right");
+                    TurnAngle = previousLaunch.TurnAngle();
+                    StartSpeed = previousLaunch.StartSpeed();
+                }
+            }
             APTimeFinish = 40;
             APTimeStart = 40;
             Sensitivity = 0.2;
@@ -241,6 +269,7 @@ namespace GravityTurn
         private void DebugGUI(int windowID)
         {
             GUILayout.Box(PreflightInfo(getVessel));
+            GUI.DragWindow(new Rect(0, 0, 10000, 2000));
         }
 
 
@@ -337,6 +366,8 @@ namespace GravityTurn
             getVessel.OnFlyByWire += new FlightInputCallback(fly);
             Launching = true;
             SaveParameters();
+            LaunchName = new string(getVessel.vesselName.ToCharArray());
+            LaunchBody = getVessel.mainBody;
         }
 
         double GetMaxThrust(Vessel vessel)
@@ -430,7 +461,6 @@ namespace GravityTurn
 
                     if (0 < (timeToAP - HoldAPTime) / TimeSpeed && (timeToAP - HoldAPTime) / TimeSpeed < 20)  // We will reach desired AP time in <20 second
                     {
-                        Debug.Log(string.Format("Time {0:0.0} Speed {1:0.00}", timeToAP, TimeSpeed));
                         PitchAdjustment.value -= 0.1f;
                     }
                 }
@@ -455,8 +485,22 @@ namespace GravityTurn
             return (float)Throttle.value;
         }
 
+        public string GetFlightMapFilename()
+        {
+            return IOUtils.GetFilePathFor(this.GetType(), string.Format("gt_vessel_{0}_{1}.png", LaunchName, LaunchBody.name));
+        }
+
         private void Kill()
         {
+            flightmap.WriteParameters(TurnAngle, StartSpeed);
+            flightmap.WriteResults(DragLoss, GravityDragLoss, VectorLoss);
+            Log("Flightmap with {0:0.00} loss", flightmap.TotalLoss());
+            FlightMap previousLaunch = FlightMap.Load(GetFlightMapFilename(), this);
+            if (getVessel.vesselName != "Untitled Space Craft" // Don't save the default vessel name
+                && getVessel.altitude > getVessel.mainBody.atmosphereDepth 
+                && (previousLaunch == null  
+                || previousLaunch.BetterResults(DragLoss,GravityDragLoss,VectorLoss))) // Only save the best result
+                flightmap.Save(GetFlightMapFilename());
             Launching = false;
             getVessel.OnFlyByWire -= new FlightInputCallback(fly);
             FlightInputHandler.state.mainThrottle = 0;

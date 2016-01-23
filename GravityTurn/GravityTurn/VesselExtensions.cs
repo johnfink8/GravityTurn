@@ -34,7 +34,7 @@ namespace GravityTurn
         {
             float coef = 0;
             foreach (Part p in vessel.parts)
-                coef += p.DragCubes.GetCubeCoeffDir(-vessel.forward());
+                coef += p.DragCubes.GetCubeCoeffDir(vessel.up())*p.DragCubes.GetCubeAreaDir(vessel.up());
             return coef;
         }
 
