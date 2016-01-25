@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Runtime.CompilerServices;
 using UnityEngine;
-using Debug = UnityEngine.Debug;
 using KSP.IO;
 using System.IO;
+using System.Diagnostics;
 
 namespace GravityTurn
 {
@@ -79,10 +79,17 @@ namespace GravityTurn
 
         public static void Log(string format, params object[] args)
         {
+            string method = "";
 #if DEBUG
-            Debug.Log(string.Format(format,args));
+            StackFrame stackFrame = new StackFrame(1, true);
+            method = string.Format(" [{0}]|{1}",stackFrame.GetMethod().ToString(),stackFrame.GetFileLineNumber());
 #endif
-
+            string incomingMessage;
+            if (args == null)
+                incomingMessage = format;
+            else
+                incomingMessage = string.Format(format,args);
+            UnityEngine.Debug.Log(string.Format("GravityTurn{0} : {1}",method,incomingMessage));
         }
 
 
@@ -94,22 +101,30 @@ namespace GravityTurn
 
         void Start()
         {
-            mucore.init();
-            vesselState = new VesselState();
-            attitude = new AttitudeController(this);
-            stage = new StageController(this);
-            attitude.OnStart();
-            RenderingManager.AddToPostDrawQueue(3, new Callback(drawGUI));//start the GUI
-            helpWindowPos = new Rect(windowPos.x+windowPos.width, windowPos.y, 0, 0);
-            stagestats = new StageStats();
-            stagestats.editorBody = getVessel.mainBody;
-            stagestats.OnModuleEnabled();
-            stagestats.OnFixedUpdate();
-            stagestats.RequestUpdate(this);
-            stagestats.OnFixedUpdate();
-            CreateButtonIcon();
-            LaunchName = new string(getVessel.vesselName.ToCharArray());
-            LaunchBody = getVessel.mainBody;
+            try
+            {
+                mucore.init();
+                vesselState = new VesselState();
+                attitude = new AttitudeController(this);
+                stage = new StageController(this);
+                attitude.OnStart();
+                RenderingManager.AddToPostDrawQueue(3, new Callback(drawGUI));//start the GUI
+                helpWindowPos = new Rect(windowPos.x + windowPos.width, windowPos.y, 0, 0);
+                stagestats = new StageStats();
+                stagestats.editorBody = getVessel.mainBody;
+                stagestats.OnModuleEnabled();
+                stagestats.OnFixedUpdate();
+                stagestats.RequestUpdate(this);
+                stagestats.OnFixedUpdate();
+                CreateButtonIcon();
+                LaunchName = new string(getVessel.vesselName.ToCharArray());
+                LaunchBody = getVessel.mainBody;
+                Log("Starting");
+            }
+            catch (Exception ex)
+            {
+                Log(ex.ToString());
+            }
         }
         private void SetWindowOpen()
         {
@@ -650,14 +665,14 @@ Total Burn: {8:0.0}",
                 if (savenode != null)
                 {
                     if (ConfigNode.LoadObjectFromConfig(this, savenode))
-                        Debug.Log("GravityTurn loaded from " + ConfigFilename(getVessel));
+                        Log("Vessel loaded from " + ConfigFilename(getVessel));
                     else
-                        Debug.Log("GravityTurn NOT loaded from " + ConfigFilename(getVessel));
+                        Log("Vessel NOT loaded from " + ConfigFilename(getVessel));
                 }
             }
             catch (Exception ex)
             {
-                Debug.LogError("GravityTurn Load error " + ex.GetType());
+                Log("Vessel Load error " + ex.GetType());
             }
         }
 
@@ -666,13 +681,20 @@ Total Burn: {8:0.0}",
             Directory.CreateDirectory(Path.GetDirectoryName(ConfigFilename(getVessel)));
             ConfigNode savenode = ConfigNode.CreateConfigFromObject(this);
             savenode.Save(ConfigFilename(getVessel));
-            Debug.Log("GravityTurn saved to " + ConfigFilename(getVessel));
+            Log("Vessel saved to " + ConfigFilename(getVessel));
         }
 
         void OnDestroy()
         {
-            Kill();
-            ApplicationLauncher.Instance.RemoveModApplication(button);
+            try
+            {
+                Kill();
+            }
+            catch (Exception ex)
+            {
+                Log(ex.ToString());
+                ApplicationLauncher.Instance.RemoveModApplication(button);
+            }
             //SaveParameters();
         }
 
