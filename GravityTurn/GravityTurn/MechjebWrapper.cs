@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using UnityEngine;
-using Debug = UnityEngine.Debug;
 using System.Reflection;
 
 namespace GravityTurn
@@ -42,15 +41,15 @@ namespace GravityTurn
                 .FirstOrDefault(t => t.FullName == "MuMech.MechJebCore");
             if (CoreType == null)
             {
-                Debug.Log("GravityTurn: MechJeb assembly not found");
+                GravityTurner.Log("MechJeb assembly not found");
                 return false;
             }
             if (!GetCore())
             {
-                Debug.Log("GravityTurn: MechJeb core not found");
+                GravityTurner.Log("MechJeb core not found");
                 return false;
             }
-            Debug.Log("GravityTurn Found MechJeb core");
+            GravityTurner.Log("Found MechJeb core");
             Initialized = true;
             return true;
         }
@@ -73,7 +72,7 @@ namespace GravityTurn
                 .FirstOrDefault(t=>t.FullName=="MuMech.OrbitalManeuverCalculator");
             MethodInfo CircularizeMethod = OrbitalManeuverCalculatorType.GetMethod("DeltaVToCircularize",BindingFlags.Public | BindingFlags.Static);
             Vector3d deltav = (Vector3d)CircularizeMethod.Invoke(null, new object[]{vessel.orbit,UT});
-            Debug.Log(string.Format("Circularization burn {0:0.0} m/s", deltav.magnitude));
+            GravityTurner.Log(string.Format("Circularization burn {0:0.0} m/s", deltav.magnitude));
             vessel.PlaceManeuverNode(vessel.orbit, deltav, UT);
             ExecuteNode();
         }

@@ -73,8 +73,8 @@ namespace GravityTurn
         Vector3d RelativeVelocity;
         MovingAverage DragRatio = new MovingAverage();
         FlightMap flightmap = null;
-        string LaunchName = getVessel.name;
-        CelestialBody LaunchBody = getVessel.mainBody;
+        string LaunchName = "";
+        CelestialBody LaunchBody = null;
         //LaunchSimulator simulator = new LaunchSimulator();
 
         public static void Log(string format, params object[] args)
@@ -119,7 +119,6 @@ namespace GravityTurn
                 CreateButtonIcon();
                 LaunchName = new string(getVessel.vesselName.ToCharArray());
                 LaunchBody = getVessel.mainBody;
-                Log("Starting");
             }
             catch (Exception ex)
             {
@@ -507,15 +506,18 @@ namespace GravityTurn
 
         private void Kill()
         {
-            flightmap.WriteParameters(TurnAngle, StartSpeed);
-            flightmap.WriteResults(DragLoss, GravityDragLoss, VectorLoss);
-            Log("Flightmap with {0:0.00} loss", flightmap.TotalLoss());
-            FlightMap previousLaunch = FlightMap.Load(GetFlightMapFilename(), this);
-            if (getVessel.vesselName != "Untitled Space Craft" // Don't save the default vessel name
-                && getVessel.altitude > getVessel.mainBody.atmosphereDepth 
-                && (previousLaunch == null  
-                || previousLaunch.BetterResults(DragLoss,GravityDragLoss,VectorLoss))) // Only save the best result
-                flightmap.Save(GetFlightMapFilename());
+            if (flightmap != null)
+            {
+                flightmap.WriteParameters(TurnAngle, StartSpeed);
+                flightmap.WriteResults(DragLoss, GravityDragLoss, VectorLoss);
+                Log("Flightmap with {0:0.00} loss", flightmap.TotalLoss());
+                FlightMap previousLaunch = FlightMap.Load(GetFlightMapFilename(), this);
+                if (getVessel.vesselName != "Untitled Space Craft" // Don't save the default vessel name
+                    && getVessel.altitude > getVessel.mainBody.atmosphereDepth
+                    && (previousLaunch == null
+                    || previousLaunch.BetterResults(DragLoss, GravityDragLoss, VectorLoss))) // Only save the best result
+                    flightmap.Save(GetFlightMapFilename());
+            }
             Launching = false;
             getVessel.OnFlyByWire -= new FlightInputCallback(fly);
             FlightInputHandler.state.mainThrottle = 0;
@@ -693,8 +695,8 @@ Total Burn: {8:0.0}",
             catch (Exception ex)
             {
                 Log(ex.ToString());
-                ApplicationLauncher.Instance.RemoveModApplication(button);
             }
+            ApplicationLauncher.Instance.RemoveModApplication(button);
             //SaveParameters();
         }
 
