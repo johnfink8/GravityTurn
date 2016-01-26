@@ -490,6 +490,10 @@ namespace GravityTurn
                 PitchAdjustment.value = 0;
             if (PitchAdjustment > MaxAngle(vessel))
                 PitchAdjustment.value = MaxAngle(vessel);
+
+            // We don't want to do any pitch correction during the initial lift
+            if (vessel.ProgradePitch(true) < -45)
+                PitchAdjustment.force(0);
             PrevTime = vessel.orbit.timeToAp;
             lastTimeMeasured = Time.time;
             if (Throttle.value < Sensitivity)
@@ -615,6 +619,7 @@ namespace GravityTurn
             info += string.Format("\narea/mass {0:0.00}", DragRatio.value);
             info += string.Format("\nGuess TWR {0:0.00}", TWRWeightedAverage(2 * vessel.mainBody.GeeASL * DestinationHeight,vessel));
             info += string.Format("\nPitch {0:0.00}", vessel.Pitch());
+            info += string.Format("\nTimeToDesiredAP {0:0.00}", Calculations.TimeToReachAP(vesselState, vesselState.speedVertical, HoldAPTime));
             return info;
         }
 

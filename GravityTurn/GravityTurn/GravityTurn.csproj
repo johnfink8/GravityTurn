@@ -49,6 +49,7 @@
   <ItemGroup>
     <Compile Include="AtmoVisualizer.cs" />
     <Compile Include="AttitudeController.cs" />
+    <Compile Include="Calculations.cs" />
     <Compile Include="CelestialBodyExtensions.cs" />
     <Compile Include="FlightMap.cs" />
     <Compile Include="FuelFlowSimulation.cs" />

@@ -121,6 +121,7 @@ namespace GravityTurn
         public double maxThrustAccel { get { return thrustAvailable / mass; } }
         public double minThrustAccel { get { return thrustMinimum / mass; } }
         public double currentThrustAccel { get { return thrustCurrent / mass; } }
+        public double maxVertAccel { get { return (thrustAvailable - gravityForce.magnitude) / mass; } }
 
         public double maxEngineResponseTime = 0;
 
