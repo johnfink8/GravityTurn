@@ -446,6 +446,10 @@ namespace GravityTurn
                 PitchAdjustment.value = 0;
             if (PitchAdjustment > MaxAngle(vessel))
                 PitchAdjustment.value = MaxAngle(vessel);
+
+            // We don't want to do any pitch correction during the initial lift
+            if (vessel.ProgradePitch(true) < -45)
+                PitchAdjustment.force(0);
             PrevTime = vessel.orbit.timeToAp;
             lastTimeMeasured = Time.time;
             if (Throttle.value < Sensitivity)
