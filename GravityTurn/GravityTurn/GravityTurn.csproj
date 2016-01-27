@@ -55,6 +55,7 @@
     <Compile Include="FuelFlowSimulation.cs" />
     <Compile Include="GravityTurner.cs" />
     <Compile Include="InstallChecker.cs" />
+    <Compile Include="LaunchDB.cs" />
     <Compile Include="LaunchSimulator.cs" />
     <Compile Include="MathExtensions.cs" />
     <Compile Include="MechjebWrapper.cs" />

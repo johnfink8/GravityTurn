@@ -73,8 +73,8 @@ namespace GravityTurn
         Vector3d RelativeVelocity;
         MovingAverage DragRatio = new MovingAverage();
         FlightMap flightmap = null;
-        string LaunchName = "";
-        CelestialBody LaunchBody = null;
+        public string LaunchName = "";
+        public CelestialBody LaunchBody = null;
         //LaunchSimulator simulator = new LaunchSimulator();
 
         public static void Log(string format, params object[] args)
