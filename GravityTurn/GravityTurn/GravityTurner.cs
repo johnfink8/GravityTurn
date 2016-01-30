@@ -54,6 +54,8 @@ namespace GravityTurn
         double FlyTimeInterval = 0;
         double VectorLoss = 0;
         double TotalBurn = 0;
+        public double TotalLoss = 0;
+        public double MaxHeat = 0;
         public double HorizontalDistance = 0;
         public double MaxThrust = 0;
         MovingAverage Throttle = new MovingAverage(10, 1);
@@ -76,6 +78,7 @@ namespace GravityTurn
         public string LaunchName = "";
         public CelestialBody LaunchBody = null;
         //LaunchSimulator simulator = new LaunchSimulator();
+        LaunchDB launchdb = null;
 
         public static void Log(string format, params object[] args)
         {
@@ -119,6 +122,8 @@ namespace GravityTurn
                 CreateButtonIcon();
                 LaunchName = new string(getVessel.vesselName.ToCharArray());
                 LaunchBody = getVessel.mainBody;
+                launchdb = new LaunchDB(this);
+                launchdb.Load();
             }
             catch (Exception ex)
             {
@@ -562,6 +567,8 @@ namespace GravityTurn
             {
                 if (TimeWarp.CurrentRateIndex > 0)
                     TimeWarp.SetRate(0, true);
+                launchdb.RecordLaunch();
+                launchdb.Save();
                 if (mucore.Initialized)
                     mucore.CircularizeAtAP();
                 Kill();
@@ -638,6 +645,9 @@ namespace GravityTurn
             VectorLoss += VectorDrag * TimeInterval;
             TotalBurn += vesselState.thrustCurrent / vesselState.mass * TimeInterval;
             double GravityDragLossAtAp = GravityDragLoss + vessel.obt_velocity.magnitude - vessel.orbit.getOrbitalVelocityAtUT(vessel.orbit.timeToAp + Planetarium.GetUniversalTime()).magnitude;
+            TotalLoss = DragLoss + GravityDragLossAtAp + VectorLoss;
+            if (vessel.CriticalHeatPart().CriticalHeat() > MaxHeat)
+                MaxHeat = vessel.CriticalHeatPart().CriticalHeat();
             Message = string.Format(
 @"Air Drag: {0:0.00}m/s²
 GravityDrag: {1:0.00}m/s²
