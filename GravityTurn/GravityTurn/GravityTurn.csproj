@@ -69,6 +69,11 @@
     <Compile Include="Vector6.cs" />
     <Compile Include="VesselExtensions.cs" />
     <Compile Include="VesselState.cs" />
+    <Compile Include="Window\BaseWindow.cs" />
+    <Compile Include="Window\FlightMapWindow.cs" />
+    <Compile Include="Window\HelpWindow.cs" />
+    <Compile Include="Window\MainWindow.cs" />
+    <Compile Include="Window\WindowManager.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>

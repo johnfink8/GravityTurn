@@ -6,22 +6,19 @@ using UnityEngine;
 
 namespace GravityTurn
 {
-    class FlightMap
+    public class FlightMap
     {
         public Texture2D texture;
         GravityTurner turner;
-        public Rect windowPos;
-        public bool visible = false;
 
         public FlightMap(GravityTurner turner,int width=800,int height=400)
         {
-            this.turner = turner;
+            this.turner = turner; 
             texture = new Texture2D(width, height);
             for (int x = 0; x < texture.width; x++)
                 for (int y = 0; y < texture.height; y++)
                     texture.SetPixel(x, y, Color.black);
             texture.Apply();
-            windowPos = new Rect(Screen.width/2-width/2, 100, width, height);
         }
 
         public void UpdateMap(Vessel vessel)
@@ -41,22 +38,6 @@ namespace GravityTurn
             texture.Apply();
         }
 
-        public void WindowGUI(int windowID)
-        {
-            GUIStyle mySty = new GUIStyle();
-            mySty.normal.textColor = mySty.focused.textColor = Color.white;
-            mySty.fontSize = 20;
-            mySty.fontStyle = FontStyle.Bold;
-            if (GUI.Button(new Rect(windowPos.width - 18, 2, 16, 16), "X"))
-                visible = false;
-            GUILayout.Box(texture);
-            Vector2 pivotPoint = new Vector2(windowPos.width-25,windowPos.height / 2 - 30);
-            GUIUtility.RotateAroundPivot(-90, pivotPoint);
-            GUI.Label(new Rect(windowPos.width-80,  windowPos.height / 2-40,80,20),"Altitude",mySty);
-            GUIUtility.RotateAroundPivot(90, pivotPoint);
-            GUI.Label(new Rect(windowPos.width/2-80, windowPos.height - 25, 160, 20), "Horizontal Distance",mySty);
-            GUI.DragWindow(new Rect(0, 0, 10000, 2000));
-        }
 
         public void WriteParameters(float TurnAngle, float StartSpeed)
         {
