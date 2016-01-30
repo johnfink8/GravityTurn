@@ -14,10 +14,8 @@ namespace GravityTurn
     public class GravityTurner : MonoBehaviour
     {
         public static Vessel getVessel { get { return FlightGlobals.ActiveVessel; } }
-        protected Rect DebugWindowPos = new Rect(500, 100, 300, 300);
-        protected string DebugText = "";
-        public ApplicationLauncherButton button;
-        Window.MainWindow mainWindow = null;
+
+        #region GUI Variables
 
         [Persistent]
         public EditableValue StartSpeed = new EditableValue(100);
@@ -42,15 +40,10 @@ namespace GravityTurn
         [Persistent]
         public bool EnableStaging = true;
 
-        public float NeutralThrottle = 0.5f;
-        double VelocityLost = 0;
-        double DragLoss = 0;
-        double GravityDragLoss = 0;
-        double FlyTimeInterval = 0;
-        double VectorLoss = 0;
-        double TotalBurn = 0;
-        public double TotalLoss = 0;
-        public double MaxHeat = 0;
+        #endregion
+
+        #region Misc. Public Variables
+
         public double HorizontalDistance = 0;
         public double MaxThrust = 0;
         public MovingAverage Throttle = new MovingAverage(10, 1);
@@ -58,24 +51,51 @@ namespace GravityTurn
         public VesselState vesselState = null;
         public double TimeSpeed = 0;
         public double PrevTime = 0;
-        AttitudeController attitude = null;
-        StageController stage;
-        bool InPitchProgram = false;
-        bool PitchSet = false;
-        StageStats stagestats = null;
         public MovingAverage PitchAdjustment = new MovingAverage(4, 0);
-        public string Message = "";
-        MechjebWrapper mucore = new MechjebWrapper();
         public bool Launching = false;
-        double maxQ = 0;
-        Vector3d RelativeVelocity;
-        MovingAverage DragRatio = new MovingAverage();
         public string LaunchName = "";
         public CelestialBody LaunchBody = null;
-        //LaunchSimulator simulator = new LaunchSimulator();
-        LaunchDB launchdb = null;
+
+        #endregion
+
+        #region Window Stuff
+
+        public ApplicationLauncherButton button;
+        Window.MainWindow mainWindow = null;
         public Window.WindowManager windowManager = new Window.WindowManager();
         public Window.FlightMapWindow flightMapWindow;
+        public string Message = "";
+
+        #endregion
+
+        #region Loss and related variables
+
+        public float NeutralThrottle = 0.5f;
+        public double TotalLoss = 0;
+        public double MaxHeat = 0;
+        double VelocityLost = 0;
+        double DragLoss = 0;
+        double GravityDragLoss = 0;
+        double FlyTimeInterval = 0;
+        double VectorLoss = 0;
+        double TotalBurn = 0;
+        bool InPitchProgram = false;
+        bool PitchSet = false;
+        double maxQ = 0;
+        MovingAverage DragRatio = new MovingAverage();
+
+        #endregion
+
+        #region Controllers and such
+
+        AttitudeController attitude = null;
+        StageController stage;
+        StageStats stagestats = null;
+        MechjebWrapper mucore = new MechjebWrapper();
+        LaunchDB launchdb = null;
+
+        #endregion
+
 
         public static void Log(string format, params object[] args)
         {
@@ -214,30 +234,14 @@ namespace GravityTurn
                 TurnAngle = Mathf.Clamp((float)(10 + TWR * 9), 10, 80);
                 StartSpeed = Mathf.Clamp((float)(100 - TWR * 45), 10, 100);
             }
-            FlightMap previousLaunch = FlightMap.Load(GetFlightMapFilename(), this);
-            if (previousLaunch != null)
-            {
 
-                if (previousLaunch.MaxHeat() > 0.95)
-                {
-                    Log("Previous launch had high heat, reducing aggressiveness");
-                    TurnAngle = previousLaunch.TurnAngle() * 0.95;
-                    StartSpeed = previousLaunch.StartSpeed()* 1.05 ;
-                }
-                else if (previousLaunch.MaxHeat() < 0.9)
-                {
-                    float Adjust = Mathf.Clamp(previousLaunch.MaxHeat() + (1-previousLaunch.MaxHeat())/2, 0.8f, 0.95f);
-                    Log("Previous launch seems high, increasing aggressiveness by {0:0.0}%",(1-Adjust)*100);
-                    TurnAngle = previousLaunch.TurnAngle() / Adjust;
-                    StartSpeed = previousLaunch.StartSpeed() * Adjust;
-                }
-                else
-                {
-                    Log("Previous launch seems about right");
-                    TurnAngle = previousLaunch.TurnAngle();
-                    StartSpeed = previousLaunch.StartSpeed();
-                }
+            double guessTurn, guessSpeed;
+            if (launchdb.GuessSettings(out guessTurn, out guessSpeed))
+            {
+                StartSpeed = guessSpeed;
+                TurnAngle = guessTurn;
             }
+            
             APTimeFinish = 40;
             APTimeStart = 40;
             Sensitivity = 0.2;
@@ -335,6 +339,7 @@ namespace GravityTurn
                     flightMapWindow.flightMap.Save(GetFlightMapFilename());
             }
             Launching = false;
+            launchdb.Save();
             getVessel.OnFlyByWire -= new FlightInputCallback(fly);
             FlightInputHandler.state.mainThrottle = 0;
             attitude.enabled = false;
@@ -375,7 +380,6 @@ namespace GravityTurn
                 if (TimeWarp.CurrentRateIndex > 0)
                     TimeWarp.SetRate(0, true);
                 launchdb.RecordLaunch();
-                launchdb.Save();
                 if (mucore.Initialized)
                     mucore.CircularizeAtAP();
                 Kill();
@@ -390,7 +394,6 @@ namespace GravityTurn
                     s.mainThrottle = Calculations.APThrottle(vessel.orbit.timeToAp, this);
                 else
                     s.mainThrottle = 0;
-                RelativeVelocity = vesselState.surfaceVelocity;
                 if (InPitchProgram && PitchSet)
                 {
                     if (vessel.ProgradePitch() + 90 >= TurnAngle)
@@ -414,7 +417,6 @@ namespace GravityTurn
                 {
                     //attitude.attitudeTo(Quaternion.Euler(ProgradePitch(false) - PitchAdjustment, LaunchHeading(), 0) * RollRotation(), AttitudeReference.SURFACE_NORTH, this);
                     attitude.attitudeTo(Quaternion.Euler(0 - PitchAdjustment, 0, Roll), AttitudeReference.ORBIT, this);
-                    RelativeVelocity = vesselState.orbitalVelocity;
                 }
                 attitude.enabled = true;
                 attitude.Drive(s);
@@ -455,6 +457,7 @@ namespace GravityTurn
             TotalLoss = DragLoss + GravityDragLossAtAp + VectorLoss;
             if (vessel.CriticalHeatPart().CriticalHeat() > MaxHeat)
                 MaxHeat = vessel.CriticalHeatPart().CriticalHeat();
+            launchdb.RecordLaunch();
             Message = string.Format(
 @"Air Drag: {0:0.00}m/s²
 GravityDrag: {1:0.00}m/s²
