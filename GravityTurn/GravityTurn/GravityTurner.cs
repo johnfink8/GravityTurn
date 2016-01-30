@@ -299,6 +299,11 @@ namespace GravityTurn
             mySty.hover.textColor = mySty.active.textColor = Color.yellow;
             mySty.onNormal.textColor = mySty.onFocused.textColor = mySty.onHover.textColor = mySty.onActive.textColor = Color.green;
             mySty.padding = new RectOffset(8, 8, 8, 8);
+            if (GUI.Button(new Rect(windowPos.width - 18, 2, 16, 16), "X"))
+            {
+                WindowVisible = false;
+                button.SetFalse(false);
+            }
             GUILayout.BeginVertical();
             GUILayout.BeginHorizontal();
             ItemLabel("Start m/s");
