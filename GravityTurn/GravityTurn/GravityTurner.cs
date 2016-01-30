@@ -169,7 +169,7 @@ namespace GravityTurn
                 null,
                 null,
                 null,
-                ApplicationLauncher.AppScenes.FLIGHT,
+                ApplicationLauncher.AppScenes.ALWAYS,
                 GameDatabase.Instance.GetTexture("GravityTurn/Textures/icon", false)
                 );
         }
