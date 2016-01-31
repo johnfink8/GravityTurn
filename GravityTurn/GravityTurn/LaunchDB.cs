@@ -6,6 +6,7 @@ using KSP.IO;
 using System.IO;
 using UnityEngine;
 
+
 namespace GravityTurn
 {
     class DBEntry : IEquatable<DBEntry>, IComparable<DBEntry>
@@ -35,11 +36,17 @@ namespace GravityTurn
 
         public int BetterThan(DBEntry other)
         {
-            if (other.MaxHeat > 0.95 && other.MaxHeat > MaxHeat) // other overheated and we didn't
+            if (IsHot() && !other.IsHot())
                 return 1;
+            if (other.IsHot() && !IsHot())
+                return -1;
+            if (other.IsHot() && other.MaxHeat > MaxHeat) // other overheated more than us
+                return -1;
             if (!other.LaunchSuccess && LaunchSuccess) // other failed and we didn't
-                return 1;
-            return (other.TotalLoss > TotalLoss)?1:0;
+                return -1;
+            if (other.TotalLoss == TotalLoss)
+                return 0;
+            return (other.TotalLoss > TotalLoss)?-1:1;
         }
 
         public int CompareTo(DBEntry other)
@@ -59,6 +66,21 @@ namespace GravityTurn
         {
             return StartSpeed == turner.StartSpeed && TurnAngle == turner.TurnAngle && MaxHeat == turner.MaxHeat && TotalLoss == turner.TotalLoss;
         }
+
+        public override string ToString()
+        {
+            return string.Format("{0:0.00}/{1:0.00}", TurnAngle, StartSpeed);
+        }
+
+        public bool IsHot()
+        {
+            return MaxHeat > 0.95;
+        }
+
+        public bool MoreAggressive(DBEntry other)
+        {
+            return TurnAngle / StartSpeed > other.TurnAngle / other.StartSpeed;
+        }
     }
 
     class LaunchDB
@@ -73,6 +95,61 @@ namespace GravityTurn
             turner = inTurner;
         }
 
+        ///<summary>
+        ///Get the least aggressive result from launches that overheated.
+        ///</summary>
+        public DBEntry LeastCritical()
+        {
+            DBEntry crit = null;
+            foreach (DBEntry entry in DB)
+            {
+                if (entry.MaxHeat > 0.95 && (crit == null || (entry.TurnAngle < crit.TurnAngle && entry.StartSpeed > crit.StartSpeed)))
+                {
+                    crit = entry;
+                }
+            }
+            return crit;
+        }
+
+
+        ///<summary>
+        ///Find the launch setting that was too aggressive and became less efficient (if any).
+        ///</summary>
+        public DBEntry EfficiencyTippingPoint()
+        {
+            if (DB.Count() < 2)
+                return null;
+            double loss = 0;
+            foreach (DBEntry entry in DB.OrderBy(o=>(o.TurnAngle/o.StartSpeed)))
+            {
+                if (entry.MaxHeat > 0.95) // Stop if we find one TOO aggressive
+                    break;
+                if (loss!=0 && entry.TotalLoss > loss)
+                    // This item is less efficient than the previous
+                    return entry;
+                loss = entry.TotalLoss;
+            }
+            return null;  // We didn't find one
+        }
+
+        ///<summary>
+        ///Just replay the best launch, no learning to be done.
+        ///</summary>
+        public bool BestSettings(out double TurnAngle, out double StartSpeed)
+        {
+            DB.Sort();
+            TurnAngle = 0;
+            StartSpeed = 0;
+            if (DB.Count() < 1 || DB[0].MaxHeat >=1 || !DB[0].LaunchSuccess)
+                return false;
+            TurnAngle = DB[0].TurnAngle;
+            StartSpeed = DB[0].StartSpeed;
+            return true;
+        }
+
+        ///<summary>
+        ///Do the real work to analyze previous results and get recommended settings.
+        ///</summary>
         public bool GuessSettings(out double TurnAngle, out double StartSpeed)
         {
             // sort by most aggressive
@@ -83,6 +160,7 @@ namespace GravityTurn
                 return false;
             if (DB.Count() == 1)
             {
+                GravityTurner.Log("Only one previous result");
                 if (DB[0].MaxHeat < 0.90)
                 {
                     float Adjust = Mathf.Clamp((float)DB[0].MaxHeat + (float)(1 - DB[0].MaxHeat) / 2, 0.8f, 0.95f);
@@ -108,6 +186,29 @@ namespace GravityTurn
 
             TurnAngle = DB[0].TurnAngle + DB[0].TurnAngle - DB[1].TurnAngle;
             StartSpeed = DB[0].StartSpeed + DB[0].StartSpeed - DB[1].StartSpeed;
+
+
+            // Check for overheated launches so we don't make that mistake again
+            DBEntry hotrun = LeastCritical();
+            if (hotrun != null && TurnAngle / StartSpeed >= hotrun.TurnAngle / hotrun.StartSpeed*0.99) // Close to a previous overheating run
+            {
+                TurnAngle = (DB[0].TurnAngle + hotrun.TurnAngle)/2;
+                StartSpeed = (DB[0].StartSpeed + hotrun.StartSpeed)/2;
+                GravityTurner.Log("Found hot run, set between {0} and {1}",
+                    DB[0].ToString(),hotrun.ToString()
+                    );
+            }
+
+            // Need to check to see if we're past the point of max efficiency
+            DBEntry toomuch = EfficiencyTippingPoint();
+            // If we're within 1% of a launch that was inefficient (or beyond)...
+            if (toomuch != null && TurnAngle/StartSpeed >= toomuch.TurnAngle/toomuch.StartSpeed*0.99)
+            {
+                // Go halfway between the best and too much
+                TurnAngle = (DB[0].TurnAngle + toomuch.TurnAngle) / 2;
+                StartSpeed = (DB[0].StartSpeed + toomuch.StartSpeed) / 2;
+            }
+
             return true;
         }
 

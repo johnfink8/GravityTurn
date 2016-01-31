@@ -212,7 +212,7 @@ namespace GravityTurn
             return TWR / deltav;
         }
 
-        public void CalculateSettings(Vessel vessel)
+        public void CalculateSettings(Vessel vessel,bool UseBest=false)
         {
             stagestats.RequestUpdate(this);
             double TWR = 0;
@@ -236,7 +236,12 @@ namespace GravityTurn
             }
 
             double guessTurn, guessSpeed;
-            if (launchdb.GuessSettings(out guessTurn, out guessSpeed))
+            if (UseBest && launchdb.BestSettings(out guessTurn,out guessSpeed))
+            {
+                StartSpeed = guessSpeed;
+                TurnAngle = guessTurn;
+            }
+            else if (launchdb.GuessSettings(out guessTurn, out guessSpeed))
             {
                 StartSpeed = guessSpeed;
                 TurnAngle = guessTurn;
