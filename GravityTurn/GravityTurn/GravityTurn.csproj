@@ -73,6 +73,7 @@
     <Compile Include="Window\FlightMapWindow.cs" />
     <Compile Include="Window\HelpWindow.cs" />
     <Compile Include="Window\MainWindow.cs" />
+    <Compile Include="Window\StageSettings.cs" />
     <Compile Include="Window\WindowManager.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

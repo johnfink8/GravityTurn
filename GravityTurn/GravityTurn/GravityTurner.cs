@@ -39,6 +39,9 @@ namespace GravityTurn
         public EditableValue Inclination = new EditableValue(0);
         [Persistent]
         public bool EnableStaging = true;
+        [Persistent]
+        public EditableValue FairingPressure = new EditableValue(10000, "{0:0}");
+
 
         #endregion
 
@@ -81,7 +84,6 @@ namespace GravityTurn
         double TotalBurn = 0;
         bool InPitchProgram = false;
         bool PitchSet = false;
-        double maxQ = 0;
         MovingAverage DragRatio = new MovingAverage();
 
         #endregion
@@ -89,7 +91,7 @@ namespace GravityTurn
         #region Controllers and such
 
         AttitudeController attitude = null;
-        StageController stage;
+        public StageController stage;
         StageStats stagestats = null;
         MechjebWrapper mucore = new MechjebWrapper();
         LaunchDB launchdb = null;
@@ -167,7 +169,6 @@ namespace GravityTurn
             DragLoss = 0;
             GravityDragLoss = 0;
             FlyTimeInterval = Time.time;
-            maxQ = 0;
             Message = "";
             VectorLoss = 0;
             HorizontalDistance = 0;
@@ -391,8 +392,6 @@ namespace GravityTurn
             }
             else
             {
-                if (maxQ < vesselState.dynamicPressure)
-                    maxQ = vesselState.dynamicPressure;
                 if (EnableStaging)
                     stage.Update();
                 if (vessel.orbit.ApA < DestinationHeight * 1000)
@@ -414,7 +413,7 @@ namespace GravityTurn
                     attitude.attitudeTo(Quaternion.Euler(-90 + TurnAngle, LaunchHeading(vessel), 0) * RollRotation(), AttitudeReference.SURFACE_NORTH, this);
                     PitchSet = true;
                 }
-                else if (vesselState.dynamicPressure > maxQ * 0.5 || vesselState.dynamicPressure > PressureCutoff)
+                else if (vesselState.dynamicPressure > vesselState.maxQ * 0.5 || vesselState.dynamicPressure > PressureCutoff)
                 { // Still ascending, or not yet below the cutoff pressure
                     attitude.attitudeTo(Quaternion.Euler(vessel.ProgradePitch() - PitchAdjustment, LaunchHeading(vessel), 0) * RollRotation(), AttitudeReference.SURFACE_NORTH, this);
                 }

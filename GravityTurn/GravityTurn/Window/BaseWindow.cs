@@ -9,6 +9,7 @@ namespace GravityTurn.Window
     public class BaseWindow
     {
         int WindowID;
+        protected GravityTurner turner;
         public bool WindowVisible = false;
         public Rect windowPos = new Rect();
         public string WindowTitle = "GravityTurn";
@@ -20,6 +21,7 @@ namespace GravityTurn.Window
 
         public BaseWindow(GravityTurner turner, int inWindowID)
         {
+            this.turner = turner;
             turner.windowManager.Register(this);
             WindowID = inWindowID;
         }

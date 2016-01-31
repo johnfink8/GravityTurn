@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace GravityTurn.Window
 {
-    class HelpWindow : BaseWindow
+    public class HelpWindow : BaseWindow
     {
         string helpWindowText = "";
 

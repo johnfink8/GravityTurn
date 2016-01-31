@@ -17,9 +17,9 @@ namespace GravityTurn
         public static Vessel vessel { get { return FlightGlobals.ActiveVessel; } }
         private VesselState vesselState { get { return turner.vesselState; } }
         //adjustable parameters:
-        public double autostagePostDelay = 0.5;
-        public double autostagePreDelay = 1.0;
-        public int autostageLimit = 1;
+        public EditableValue autostagePostDelay = new EditableValue(0.5,"{0:0.0}");
+        public EditableValue autostagePreDelay = new EditableValue(1.0, "{0:0.0}");
+        public EditableValue autostageLimit = new EditableValue(0, "{0:0}");
 
         public bool autostagingOnce = false;
 
@@ -45,8 +45,8 @@ namespace GravityTurn
                     //Don't fire a stage that will activate a parachute, unless that parachute gets decoupled:
                     if (!HasStayingChutes(Staging.CurrentStage - 1, vessel))
                     {
-                        // Don't pop procedural fairings at more than 20k dynamic pressure
-                        if (!HasStayingFairing(Staging.CurrentStage - 1, vessel) || (vesselState.dynamicPressure < 10000 && vesselState.altitudeASL > vessel.mainBody.atmosphereDepth * 0.2))
+                        // Don't pop procedural fairings at more than FairingPressure or before maxQ
+                        if (!HasStayingFairing(Staging.CurrentStage - 1, vessel) || (vesselState.dynamicPressure < turner.FairingPressure && vesselState.dynamicPressure < vesselState.maxQ))
                         {
                             //only fire decouplers to drop deactivated engines or tanks
                             bool firesDecoupler = InverseStageFiresDecoupler(Staging.CurrentStage - 1, vessel);

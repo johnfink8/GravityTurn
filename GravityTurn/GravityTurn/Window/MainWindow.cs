@@ -10,13 +10,15 @@ namespace GravityTurn.Window
     {
 
         HelpWindow helpWindow = null;
-        GravityTurner turner = null;
+        StageSettings stagesettings = null;
+
         public MainWindow(GravityTurner inTurner, int inWindowID)
             : base(inTurner,inWindowID)
         {
             turner = inTurner;
             helpWindow = new HelpWindow(inTurner,inWindowID+1);
             windowPos = new Rect(50, 100, 300, 200);
+            stagesettings = new StageSettings(inTurner, inWindowID + 2,helpWindow);
         }
 
         public override void WindowGUI(int windowID)
@@ -71,6 +73,8 @@ namespace GravityTurn.Window
             helpWindow.Button("Dynamic pressure where we change from Surface to Orbital velocity tracking\nThis will be a balance point between aerodynamic drag in the upper atmosphere vs. thrust vector loss.");
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Setup", GUILayout.ExpandWidth(false)))
+                stagesettings.WindowVisible = !stagesettings.WindowVisible;
             turner.EnableStaging = GUILayout.Toggle(turner.EnableStaging, "Auto-Staging");
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();

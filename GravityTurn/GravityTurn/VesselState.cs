@@ -175,6 +175,7 @@ namespace GravityTurn
         public double atmosphericDensityGrams;
 
         public double dynamicPressure;
+        public double maxQ = 0;
 
         public double intakeAir;
 
@@ -478,6 +479,8 @@ namespace GravityTurn
             atmosphericDensity = FlightGlobals.getAtmDensity(atmosphericPressure, temperature);
             atmosphericDensityGrams = atmosphericDensity * 1000;
             dynamicPressure = vessel.dynamicPressurekPa * 1000;
+            if (maxQ < dynamicPressure)
+                maxQ = dynamicPressure;
 
             speedOfSound = vessel.speedOfSound;
 
