@@ -80,11 +80,14 @@ namespace GravityTurn.Window
             GUILayout.Label(string.Format("Time to match: {0:0.0}", turner.HoldAPTime), GUILayout.ExpandWidth(false));
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
-            if (GravityTurner.getVessel.Landed && !turner.Launching && GUILayout.Button("Improve Guess", GUILayout.ExpandWidth(false)))
-                turner.CalculateSettings(GravityTurner.getVessel);
-            if (GravityTurner.getVessel.Landed && !turner.Launching && GUILayout.Button("Previous Best Settings", GUILayout.ExpandWidth(false)))
-                turner.CalculateSettings(GravityTurner.getVessel,true);
-            helpWindow.Button("Improve Guess will try to extrapolate the best settings based on previous launches.  This may end in fiery death, but it won't happen the same way twice.  Be warned, sometimes launches get worse before they get better.  But they do get better.");
+            if (GravityTurner.getVessel.Landed && !turner.Launching)
+            {
+                if (GUILayout.Button("Improve Guess", GUILayout.ExpandWidth(false)))
+                    turner.CalculateSettings(GravityTurner.getVessel);
+                if (GUILayout.Button("Previous Best Settings", GUILayout.ExpandWidth(false)))
+                    turner.CalculateSettings(GravityTurner.getVessel, true);
+                helpWindow.Button("Improve Guess will try to extrapolate the best settings based on previous launches.  This may end in fiery death, but it won't happen the same way twice.  Be warned, sometimes launches get worse before they get better.  But they do get better.");
+            }
             GUILayout.EndHorizontal();
             if (GravityTurner.getVessel.Landed && !turner.Launching && GUILayout.Button("Launch!"))
             {

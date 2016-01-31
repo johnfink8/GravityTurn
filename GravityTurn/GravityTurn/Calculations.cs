@@ -72,6 +72,16 @@ namespace GravityTurn
                 turner.Throttle.force(turner.Sensitivity);
             if (turner.Throttle.value > 1)
                 turner.Throttle.force(1);
+
+            // Inrease the AP time if needed for SRB lifter stages
+            if (vessel.HasActiveSRB() && vessel.orbit.timeToAp > turner.HoldAPTime && turner.TimeSpeed < 0)
+            {
+                double StopHeight = GravityTurner.getVessel.mainBody.atmosphereDepth;
+                if (StopHeight <= 0)
+                    StopHeight = turner.DestinationHeight * 1000;
+                turner.APTimeStart = (StopHeight * vessel.orbit.timeToAp - vessel.altitude * turner.APTimeFinish) / (StopHeight - vessel.altitude);
+            }
+
             return (float)turner.Throttle.value;
         }
 

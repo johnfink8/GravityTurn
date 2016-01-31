@@ -79,6 +79,7 @@ namespace GravityTurn
         {
             return Staging.CurrentStage != Staging.StageCount;
         }
+
         public static ManeuverNode PlaceManeuverNode(this Vessel vessel, Orbit patch, Vector3d dV, double UT)
         {
             //placing a maneuver node with bad dV values can really mess up the game, so try to protect against that
@@ -107,57 +108,22 @@ namespace GravityTurn
             mn.OnGizmoUpdated(nodeDV, UT);
             return mn;
         }
-        /*private static Vessel vessel { get { return FlightGlobals.ActiveVessel; } }
-        //public static Vector3d CoM { get { return vessel.findWorldCenterOfMass(); } }
 
-        public static Vector3d CoM(this Vessel v)
+        public static bool HasActiveSRB(this Vessel vessel)
         {
-            return v.findWorldCenterOfMass();
-        }
-        public static Vector3d up(this Vessel v)
-        {
-            return (v.CoM() - v.mainBody.position).normalized;
-
-        }
-
-        public static Vector3d orbitalVelocity(this Vessel v)
-        {
-            return v.obt_velocity;
-        }
-
-        public static Quaternion rotationSurface(this Vessel v)
-        {
-            Vector3d north = Vector3d.Exclude(v.up(), (v.mainBody.position + v.mainBody.transform.up * (float)v.mainBody.Radius) - v.CoM()).normalized;
-            Vector3d east = v.mainBody.getRFrmVel(v.CoM()).normalized;
-            Vector3d forward = v.GetTransform().up;
-            return Quaternion.LookRotation(north, v.up());
-        }
-
-        public static Vector3d surfaceVelocity(this Vessel v)
-        {
-            return v.obt_velocity - v.mainBody.getRFrmVel(v.CoM());
-        }
-
-        public static Vector3d normalPlus(this Vessel v)
-        {
-            Vector3d radialPlus = Vector3d.Exclude(v.orbitalVelocity(), v.up()).normalized;
-            return -Vector3d.Cross(radialPlus, v.orbitalVelocity().normalized);
-
-        }
-
-        public static Vector3d forward(this Vessel v)
-        {
-            return v.GetTransform().up;
-        }
-
-        public static Vector3d torqueAvailable(this Vessel v)
-        {
-            Vector3d torque = Vector3d.zero;
-            foreach (ModuleReactionWheel rw in vessel.FindPartModulesImplementing<ModuleReactionWheel>())
+            foreach (Part part in vessel.parts)
             {
-                torque += new Vector3d(rw.PitchTorque, rw.RollTorque, rw.YawTorque);
+                if (part.isActiveAndEnabled)
+                {
+                    foreach (PartModule module in part.Modules)
+                    {
+                        var engine = module as ModuleEngines;
+                        if (engine != null && engine.engineType == EngineType.SolidBooster && engine.propellantReqMet>0)
+                            return true;
+                    }
+                }
             }
-            return torque;
-        }*/
+            return false;
+        }
     }
 }
