@@ -13,6 +13,7 @@ namespace GravityTurn.Window
             : base(turner, WindowID)
         {
             helpWindow = inhelpWindow;
+            WindowTitle = "GravityTurn Stage Settings";
         }
 
         public override void WindowGUI(int windowID)

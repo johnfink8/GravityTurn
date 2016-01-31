@@ -6,7 +6,7 @@
 *.user
 *.userosscache
 *.sln.docstates
-GravityTurn.zip
+*.zip
 *.xcf
 
 # User-specific files (MonoDevelop/Xamarin Studio)
