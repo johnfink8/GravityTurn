@@ -4,7 +4,6 @@ using System.Linq;
 using System.Text;
 using UnityEngine;
 using System.Threading;
-using Debug = UnityEngine.Debug;
 
 namespace GravityTurn
 {
@@ -128,7 +127,7 @@ namespace GravityTurn
             }
             catch (Exception e)
             {
-                Debug.Log("Exception in StageStats.RunSimulation(): " + e.StackTrace);
+                GravityTurner.Log("Exception in StageStats.RunSimulation(): {0}", e.ToString());
             }
 
             //see how long the simulation took

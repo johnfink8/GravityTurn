@@ -1,0 +1,123 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using UnityEngine;
+using KSP.IO;
+using System.IO;
+
+namespace GravityTurn.Window
+{
+
+    public class PersistentWindow
+    {
+        [Persistent]
+        public float left;
+        [Persistent]
+        public float top;
+        [Persistent]
+        public float width;
+        [Persistent]
+        public float height;
+
+        public PersistentWindow(float left,float top,float width,float height)
+        {
+            this.left=left;
+            this.top=top;
+            this.width=width;
+            this.height=height;
+        }
+        public PersistentWindow()
+        {
+            this.left = 0;
+            this.top = 0;
+            this.width = 0;
+            this.height = 0;
+        }
+        public static implicit operator Rect(PersistentWindow rect)
+        {
+            return new Rect(rect.left, rect.top, rect.width, rect.height);
+        }
+        public static implicit operator PersistentWindow(Rect rect)
+        {
+            return new PersistentWindow(rect.left, rect.top, rect.width, rect.height);
+        }
+    }
+
+    public class BaseWindow
+    {
+        int WindowID;
+        protected GravityTurner turner;
+        public bool WindowVisible = false;
+        public string WindowTitle = "GravityTurn";
+        string filename;
+
+        [Persistent]
+        public PersistentWindow windowPos = new PersistentWindow();
+
+
+        protected void ItemLabel(string labelText)
+        {
+            GUILayout.Label(labelText, GUILayout.ExpandWidth(false), GUILayout.Width(windowPos.width / 2));
+        }
+
+        public BaseWindow(GravityTurner turner, int inWindowID)
+        {
+            this.turner = turner;
+            turner.windowManager.Register(this);
+            WindowID = inWindowID;
+            filename = IOUtils.GetFilePathFor(turner.GetType(), string.Format("gt_window_{0}.cfg", WindowID));
+            Load();
+        }
+
+        public void Load()
+        {
+            try
+            {
+                ConfigNode root = ConfigNode.Load(filename);
+                if (root != null)
+                {
+                    if (ConfigNode.LoadObjectFromConfig(this, root))
+                        GravityTurner.Log("Window loaded from {0}", filename);
+                    else
+                        GravityTurner.Log("Window NOT loaded from {0}", filename);
+                }
+            }
+            catch (Exception ex)
+            {
+                GravityTurner.Log("Window Load error {0}", ex.ToString());
+            }
+        }
+
+        public virtual void WindowGUI(int windowID)
+        {
+            if (GUI.Button(new Rect(windowPos.width - 18, 2, 16, 16), "X"))
+            {
+                WindowVisible = false;
+            }
+            GUI.DragWindow(new Rect(0, 0, 10000, 20));
+
+        }
+        public void drawGUI()
+        {
+            if (WindowVisible)
+            {
+                GUI.skin = HighLogic.Skin;
+                windowPos = GUILayout.Window(WindowID, windowPos, WindowGUI, WindowTitle, GUILayout.MinWidth(300));
+            }
+        }
+
+        public void OnDestroy()
+        {
+            Save();
+        }
+
+        public void Save()
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(filename));
+            ConfigNode root = ConfigNode.CreateConfigFromObject(this);
+            root.Save(filename);
+            GravityTurner.Log("Window saved to {0}", filename);
+        }
+    }
+}

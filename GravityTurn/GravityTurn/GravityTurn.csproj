@@ -49,11 +49,13 @@
   <ItemGroup>
     <Compile Include="AtmoVisualizer.cs" />
     <Compile Include="AttitudeController.cs" />
+    <Compile Include="Calculations.cs" />
     <Compile Include="CelestialBodyExtensions.cs" />
     <Compile Include="FlightMap.cs" />
     <Compile Include="FuelFlowSimulation.cs" />
     <Compile Include="GravityTurner.cs" />
     <Compile Include="InstallChecker.cs" />
+    <Compile Include="LaunchDB.cs" />
     <Compile Include="LaunchSimulator.cs" />
     <Compile Include="MathExtensions.cs" />
     <Compile Include="MechjebWrapper.cs" />
@@ -67,6 +69,12 @@
     <Compile Include="Vector6.cs" />
     <Compile Include="VesselExtensions.cs" />
     <Compile Include="VesselState.cs" />
+    <Compile Include="Window\BaseWindow.cs" />
+    <Compile Include="Window\FlightMapWindow.cs" />
+    <Compile Include="Window\HelpWindow.cs" />
+    <Compile Include="Window\MainWindow.cs" />
+    <Compile Include="Window\StageSettings.cs" />
+    <Compile Include="Window\WindowManager.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>

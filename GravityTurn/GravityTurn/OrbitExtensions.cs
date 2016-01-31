@@ -308,14 +308,6 @@ namespace GravityTurn
             Vector3d vectorToAN = Quaternion.AngleAxis(-(float)o.LAN, Planetarium.up) * Planetarium.right;
             Vector3d vectorToPe = Quaternion.AngleAxis((float)o.argumentOfPeriapsis, o.SwappedOrbitNormal()) * vectorToAN;
             Vector3d ret = -o.ApR * vectorToPe;
-            if (double.IsNaN(ret.x))
-            {
-                Debug.LogError("OrbitExtensions.SwappedRelativePositionAtApoapsis got a NaN result!");
-                Debug.LogError("o.LAN = " + o.LAN);
-                Debug.LogError("o.inclination = " + o.inclination);
-                Debug.LogError("o.argumentOfPeriapsis = " + o.argumentOfPeriapsis);
-                Debug.LogError("o.SwappedOrbitNormal() = " + o.SwappedOrbitNormal());
-            }
             return ret;
         }
 
