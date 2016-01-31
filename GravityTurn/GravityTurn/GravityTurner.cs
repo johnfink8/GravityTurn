@@ -525,6 +525,7 @@ Total Burn: {8:0.0}",
             {
                 Log(ex.ToString());
             }
+            windowManager.OnDestroy();
             ApplicationLauncher.Instance.RemoveModApplication(button);
             //SaveParameters();
         }

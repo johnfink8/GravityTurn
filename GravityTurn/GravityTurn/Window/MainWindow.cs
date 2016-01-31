@@ -17,7 +17,6 @@ namespace GravityTurn.Window
         {
             turner = inTurner;
             helpWindow = new HelpWindow(inTurner,inWindowID+1);
-            windowPos = new Rect(50, 100, 300, 200);
             stagesettings = new StageSettings(inTurner, inWindowID + 2,helpWindow);
         }
 
