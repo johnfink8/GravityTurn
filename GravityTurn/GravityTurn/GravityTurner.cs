@@ -296,8 +296,6 @@ namespace GravityTurn
             return thrust;
         }
 
-
-
         void FixedUpdate()
         {
             stagestats.editorBody = getVessel.mainBody;

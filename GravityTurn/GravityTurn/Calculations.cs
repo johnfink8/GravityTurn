@@ -25,7 +25,7 @@ namespace GravityTurn
             {
                 if (timeToAP > vessel.orbit.timeToPe) // We're falling
                     timeToAP = 0;
-                float diff = 0.1f * (float)Math.Abs(turner.HoldAPTime - timeToAP) * turner.Sensitivity;
+                float diff = 0.1f * (float)Math.Abs(turner.HoldAPTime - timeToAP) * 0.5f;
                 turner.TimeSpeed = (turner.PrevTime - timeToAP) / (Time.time - turner.lastTimeMeasured);
                 if (Math.Abs(turner.TimeSpeed) < 0.02 && turner.PitchAdjustment == 0)
                     turner.NeutralThrottle = (float)turner.Throttle.value;
@@ -80,6 +80,7 @@ namespace GravityTurn
                 if (StopHeight <= 0)
                     StopHeight = turner.DestinationHeight * 1000;
                 turner.APTimeStart = (StopHeight * vessel.orbit.timeToAp - vessel.altitude * turner.APTimeFinish) / (StopHeight - vessel.altitude);
+                turner.APTimeStart *= 0.99; // We want to be just a bit less than what we calculate, so we don't stay throttled up
             }
 
             return (float)turner.Throttle.value;
