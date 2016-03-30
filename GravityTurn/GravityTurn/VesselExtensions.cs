@@ -78,7 +78,7 @@ namespace GravityTurn
 
         public static bool LiftedOff(this Vessel v)
         {
-            return StageManager.CurrentStage != StageManager.StageCount;
+            return !(v.Landed || v.Splashed);
         }
 
         public static Rigidbody rigidbody(this Vessel v)

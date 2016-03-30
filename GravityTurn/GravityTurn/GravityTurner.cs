@@ -139,43 +139,24 @@ namespace GravityTurn
             Log("Starting");
             try
             {
-                Log("%i",lineno);
                 mucore.init();
-                Log("%i", lineno);
                 vesselState = new VesselState();
-                Log("%i", lineno);
                 attitude = new AttitudeController(this);
-                Log("%i", lineno);
                 stage = new StageController(this);
-                Log("%i", lineno);
                 attitude.OnStart();
-                Log("%i", lineno);
                 stagestats = new StageStats();
-                Log("%i", lineno);
                 stagestats.editorBody = getVessel.mainBody;
-                Log("%i", lineno);
                 stagestats.OnModuleEnabled();
-                Log("%i", lineno);
                 stagestats.OnFixedUpdate();
-                Log("%i", lineno);
                 stagestats.RequestUpdate(this);
-                Log("%i", lineno);
                 stagestats.OnFixedUpdate();
-                Log("%i", lineno);
                 CreateButtonIcon();
-                Log("%i", lineno);
                 LaunchName = new string(getVessel.vesselName.ToCharArray());
-                Log("%i", lineno);
                 LaunchBody = getVessel.mainBody;
-                Log("%i", lineno);
                 launchdb = new LaunchDB(this);
-                Log("%i", lineno);
                 launchdb.Load();
-                Log("%i", lineno);
                 mainWindow = new Window.MainWindow(this, 6378070);
-                Log("%i", lineno);
                 flightMapWindow = new Window.FlightMapWindow(this, 548302);
-                Log("%i", lineno);
             }
             catch (Exception ex)
             {

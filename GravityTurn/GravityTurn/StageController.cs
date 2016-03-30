@@ -65,6 +65,7 @@ namespace GravityTurn
                                             lastStageTime = vesselState.time;
                                         }
 
+
                                         StageManager.ActivateNextStage();
                                         countingDown = false;
 
