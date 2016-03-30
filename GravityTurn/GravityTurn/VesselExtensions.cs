@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 //using System.Threading.Tasks;
 using UnityEngine;
+using KSP.UI.Screens;
 
 namespace GravityTurn
 {
@@ -77,7 +78,12 @@ namespace GravityTurn
 
         public static bool LiftedOff(this Vessel v)
         {
-            return Staging.CurrentStage != Staging.StageCount;
+            return StageManager.CurrentStage != StageManager.StageCount;
+        }
+
+        public static Rigidbody rigidbody(this Vessel v)
+        {
+            return v.GetComponent<Rigidbody>();
         }
 
         public static ManeuverNode PlaceManeuverNode(this Vessel vessel, Orbit patch, Vector3d dV, double UT)

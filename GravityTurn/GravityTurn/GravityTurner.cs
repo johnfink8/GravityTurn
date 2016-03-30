@@ -7,6 +7,7 @@ using UnityEngine;
 using KSP.IO;
 using System.IO;
 using System.Diagnostics;
+using KSP.UI.Screens;
 
 namespace GravityTurn
 {
@@ -38,7 +39,7 @@ namespace GravityTurn
         [Persistent]
         public EditableValue Inclination = new EditableValue(0);
         [Persistent]
-        public bool EnableStaging = true;
+        public bool EnableStageManager = true;
         [Persistent]
         public EditableValue FairingPressure = new EditableValue(10000, "{0:0}");
 
@@ -98,9 +99,13 @@ namespace GravityTurn
 
         #endregion
 
-
-        public static void Log(string format, params object[] args)
+        private int lineno { get { StackFrame callStack = new StackFrame(1, true); return callStack.GetFileLineNumber(); } }
+        public static void Log(
+            string format,
+            params object[] args
+            )
         {
+            
             string method = "";
 #if DEBUG
             StackFrame stackFrame = new StackFrame(1, true);
@@ -120,30 +125,57 @@ namespace GravityTurn
             return IOUtils.GetFilePathFor(this.GetType(), string.Format("gt_vessel_{0}_{1}.cfg",vessel.id.ToString(),vessel.mainBody.name));
         }
 
+        private void OnGUI()
+        {
+            if (Event.current.type == EventType.Repaint || Event.current.isMouse)
+            {
+                //myPreDrawQueue(); // Your current on preDrawQueue code
+            }
+            windowManager.DrawGuis(); // Your current on postDrawQueue code
+        }
 
         void Start()
         {
+            Log("Starting");
             try
             {
+                Log("%i",lineno);
                 mucore.init();
+                Log("%i", lineno);
                 vesselState = new VesselState();
+                Log("%i", lineno);
                 attitude = new AttitudeController(this);
+                Log("%i", lineno);
                 stage = new StageController(this);
+                Log("%i", lineno);
                 attitude.OnStart();
-                RenderingManager.AddToPostDrawQueue(3, new Callback(windowManager.DrawGuis));//start the GUI
+                Log("%i", lineno);
                 stagestats = new StageStats();
+                Log("%i", lineno);
                 stagestats.editorBody = getVessel.mainBody;
+                Log("%i", lineno);
                 stagestats.OnModuleEnabled();
+                Log("%i", lineno);
                 stagestats.OnFixedUpdate();
+                Log("%i", lineno);
                 stagestats.RequestUpdate(this);
+                Log("%i", lineno);
                 stagestats.OnFixedUpdate();
+                Log("%i", lineno);
                 CreateButtonIcon();
+                Log("%i", lineno);
                 LaunchName = new string(getVessel.vesselName.ToCharArray());
+                Log("%i", lineno);
                 LaunchBody = getVessel.mainBody;
+                Log("%i", lineno);
                 launchdb = new LaunchDB(this);
+                Log("%i", lineno);
                 launchdb.Load();
+                Log("%i", lineno);
                 mainWindow = new Window.MainWindow(this, 6378070);
+                Log("%i", lineno);
                 flightMapWindow = new Window.FlightMapWindow(this, 548302);
+                Log("%i", lineno);
             }
             catch (Exception ex)
             {
@@ -270,8 +302,8 @@ namespace GravityTurn
 
         public void Launch()
         {
-            if (Staging.CurrentStage == Staging.StageCount)
-                Staging.ActivateNextStage();
+            if (StageManager.CurrentStage == StageManager.StageCount)
+                StageManager.ActivateNextStage();
             InitializeNumbers(getVessel);
             getVessel.OnFlyByWire += new FlightInputCallback(fly);
             Launching = true;
@@ -390,7 +422,7 @@ namespace GravityTurn
             }
             else
             {
-                if (EnableStaging)
+                if (EnableStageManager)
                     stage.Update();
                 if (vessel.orbit.ApA < DestinationHeight * 1000)
                     s.mainThrottle = Calculations.APThrottle(vessel.orbit.timeToAp, this);

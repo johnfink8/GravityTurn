@@ -24,9 +24,9 @@ namespace GravityTurn
         private VesselState vesselState { get { return turner.vesselState; } }
         public static Orbit orbit { get { return vessel.orbit; } }
         public PIDControllerV3 pid;
-        public Vector3d lastAct = Vector3d.zero;
-        public Vector3d pidAction;  //info
-        public Vector3d error;  //info
+        public Vector3 lastAct = Vector3.zero;
+        public Vector3 pidAction;  //info
+        public Vector3 error;  //info
         protected float timeCount = 0;
         protected Part lastReferencePart;
         GravityTurner turner = null;
@@ -442,9 +442,9 @@ namespace GravityTurn
                 pidAction = pid.Compute(err, omega, Wlimit);
 
                 // deadband
-                pidAction.x = Math.Abs(pidAction.x) >= deadband ? pidAction.x : 0.0;
-                pidAction.y = Math.Abs(pidAction.y) >= deadband ? pidAction.y : 0.0;
-                pidAction.z = Math.Abs(pidAction.z) >= deadband ? pidAction.z : 0.0;
+                pidAction.x = Math.Abs(pidAction.x) >= deadband ? pidAction.x : 0.0f;
+                pidAction.y = Math.Abs(pidAction.y) >= deadband ? pidAction.y : 0.0f;
+                pidAction.z = Math.Abs(pidAction.z) >= deadband ? pidAction.z : 0.0f;
 
                 // low pass filter,  wf = 1/Tf:
                 Vector3d act = lastAct;

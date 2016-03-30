@@ -116,5 +116,11 @@ namespace GravityTurn
                 return skin;
             return intern;
         }
+
+        public static Rigidbody rigidbody(this Part p)
+        {
+            return p.GetComponent<Rigidbody>();
+        }
+
     }
 }

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using KSP.UI.Screens;
 
 namespace GravityTurn
 {
@@ -21,7 +22,7 @@ namespace GravityTurn
         public EditableValue autostagePreDelay = new EditableValue(1.0, "{0:0.0}");
         public EditableValue autostageLimit = new EditableValue(0, "{0:0}");
 
-        public bool autostagingOnce = false;
+        public bool autoStageManagerOnce = false;
 
         //internal state:
         double lastStageTime = 0;
@@ -34,23 +35,23 @@ namespace GravityTurn
             if (!vessel.isActiveVessel) return;
 
             //if autostage enabled, and if we are not waiting on the pad, and if there are stages left,
-            //and if we are allowed to continue staging, and if we didn't just fire the previous stage
-            if (vessel.LiftedOff() && Staging.CurrentStage > 0 && Staging.CurrentStage > autostageLimit
+            //and if we are allowed to continue StageManager, and if we didn't just fire the previous stage
+            if (vessel.LiftedOff() && StageManager.CurrentStage > 0 && StageManager.CurrentStage > autostageLimit
                 && vesselState.time - lastStageTime > autostagePostDelay)
             {
                 //don't decouple active or idle engines or tanks
                 List<int> burnedResources = FindBurnedResources();
-                if (!InverseStageDecouplesActiveOrIdleEngineOrTank(Staging.CurrentStage - 1, vessel, burnedResources))
+                if (!InverseStageDecouplesActiveOrIdleEngineOrTank(StageManager.CurrentStage - 1, vessel, burnedResources))
                 {
                     //Don't fire a stage that will activate a parachute, unless that parachute gets decoupled:
-                    if (!HasStayingChutes(Staging.CurrentStage - 1, vessel))
+                    if (!HasStayingChutes(StageManager.CurrentStage - 1, vessel))
                     {
                         // Don't pop procedural fairings at more than FairingPressure or before maxQ
-                        if (!HasStayingFairing(Staging.CurrentStage - 1, vessel) || (vesselState.dynamicPressure < turner.FairingPressure && vesselState.dynamicPressure < vesselState.maxQ))
+                        if (!HasStayingFairing(StageManager.CurrentStage - 1, vessel) || (vesselState.dynamicPressure < turner.FairingPressure && vesselState.dynamicPressure < vesselState.maxQ))
                         {
                             //only fire decouplers to drop deactivated engines or tanks
-                            bool firesDecoupler = InverseStageFiresDecoupler(Staging.CurrentStage - 1, vessel);
-                            if (!firesDecoupler || InverseStageDecouplesDeactivatedEngineOrTank(Staging.CurrentStage - 1, vessel))
+                            bool firesDecoupler = InverseStageFiresDecoupler(StageManager.CurrentStage - 1, vessel);
+                            if (!firesDecoupler || InverseStageDecouplesDeactivatedEngineOrTank(StageManager.CurrentStage - 1, vessel))
                             {
                                 //When we find that we're allowed to stage, start a countdown (with a 
                                 //length given by autostagePreDelay) and only stage once that countdown finishes,
@@ -64,7 +65,7 @@ namespace GravityTurn
                                             lastStageTime = vesselState.time;
                                         }
 
-                                        Staging.ActivateNextStage();
+                                        StageManager.ActivateNextStage();
                                         countingDown = false;
 
                                     }
@@ -95,11 +96,11 @@ namespace GravityTurn
             return false;
         }
 
-        // Find resources burned by engines that will remain after staging (so we wait until tanks are empty before releasing drop tanks)
+        // Find resources burned by engines that will remain after StageManager (so we wait until tanks are empty before releasing drop tanks)
         bool PartIsEngine(Part p)
         {
-            return p.inverseStage >= Staging.CurrentStage && p.IsEngine() && !p.IsSepratron() &&
-                !p.IsDecoupledInStage(Staging.CurrentStage - 1);
+            return p.inverseStage >= StageManager.CurrentStage && p.IsEngine() && !p.IsSepratron() &&
+                !p.IsDecoupledInStage(StageManager.CurrentStage - 1);
         }
         bool IsEnabledEngine(ModuleEngines e)
         {

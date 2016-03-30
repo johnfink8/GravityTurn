@@ -74,7 +74,7 @@ namespace GravityTurn.Window
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Setup", GUILayout.ExpandWidth(false)))
                 stagesettings.WindowVisible = !stagesettings.WindowVisible;
-            turner.EnableStaging = GUILayout.Toggle(turner.EnableStaging, "Auto-Staging");
+            turner.EnableStageManager = GUILayout.Toggle(turner.EnableStageManager, "Auto-StageManager");
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
             turner.flightMapWindow.WindowVisible = GUILayout.Toggle(turner.flightMapWindow.WindowVisible, "Show Launch Map");

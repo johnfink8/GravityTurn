@@ -40,7 +40,7 @@ namespace GravityTurn.Window
         }
         public static implicit operator PersistentWindow(Rect rect)
         {
-            return new PersistentWindow(rect.left, rect.top, rect.width, rect.height);
+            return new PersistentWindow(rect.xMin, rect.yMin, rect.width, rect.height);
         }
     }
 

@@ -107,7 +107,7 @@ namespace GravityTurn
                 texture.LoadImage(System.IO.File.ReadAllBytes(filename));
                 FlightMap flightmap = new FlightMap(turner, texture.width, texture.height);
                 flightmap.texture = texture;
-                GravityTurner.Log("FlightMap loaded with {0:0.00} loss", flightmap.TotalLoss());
+                GravityTurner.Log("FlightMap loaded with {0:0.00} loss", args:flightmap.TotalLoss());
                 return flightmap;
             }
             catch (Exception)
