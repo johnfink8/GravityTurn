@@ -18,8 +18,8 @@ namespace GravityTurn
         public static Vessel vessel { get { return FlightGlobals.ActiveVessel; } }
         private VesselState vesselState { get { return turner.vesselState; } }
         //adjustable parameters:
-        public EditableValue autostagePostDelay = new EditableValue(0.5,"{0:0.0}");
-        public EditableValue autostagePreDelay = new EditableValue(1.0, "{0:0.0}");
+        public EditableValue autostagePostDelay = new EditableValue(0.5d,"{0:0.0}");
+        public EditableValue autostagePreDelay = new EditableValue(1.0d, "{0:0.0}");
         public EditableValue autostageLimit = new EditableValue(0, "{0:0}");
 
         public bool autoStageManagerOnce = false;
@@ -131,7 +131,9 @@ namespace GravityTurn
             {
                 return true; // TODO: properly check if ModuleEngines is active
             }
-            if ((p is FuelTank) && (((FuelTank)p).fuel > 0)) return true;
+
+
+            if (p.IsFuelTank() && p.FuelTankHasFuel()) return true;
             if (!p.IsSepratron())
             {
                 for (int i = 0; i < p.Resources.Count; i++)
@@ -185,7 +187,7 @@ namespace GravityTurn
         //detect if a part is above a deactivated engine or fuel tank
         public static bool HasDeactivatedEngineOrTankDescendant(Part p)
         {
-            if ((p.State == PartStates.DEACTIVATED) && (p is FuelTank || p.IsEngine()) && !p.IsSepratron())
+            if ((p.State == PartStates.DEACTIVATED) && (p.IsFuelTank() || p.IsEngine()) && !p.IsSepratron())
             {
                 return true; // TODO: yet more ModuleEngine lazy checks
             }
@@ -196,7 +198,7 @@ namespace GravityTurn
             for (int i = 0; i < p.Resources.Count; i++)
             {
                 PartResource r = p.Resources[i];
-                if (r.name == "ElectricCharge") continue;
+                if (r.resourceName == "ElectricCharge") continue;
                 if (r.maxAmount > 0) hadResources = true;
                 if (r.amount > 0) hasResources = true;
             }

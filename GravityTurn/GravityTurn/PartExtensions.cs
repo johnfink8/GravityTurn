@@ -60,7 +60,7 @@ namespace GravityTurn
             return p.ActivatesEvenIfDisconnected
                 && p.IsEngine()
                 && p.IsDecoupledInStage(p.inverseStage)
-                && !p.isControlSource;
+                && p.isControlSource == Vessel.ControlLevel.FULL;
         }
         public static bool IsEngine(this Part p)
         {
@@ -71,6 +71,18 @@ namespace GravityTurn
             }
             return false;
         }
+
+        public static bool IsFuelTank(this Part p)
+        {
+            for (int i = 0; i < p.Resources.Count; i++)
+            {
+                PartResource r = p.Resources[i];
+                if (r.resourceName == "LiquidFuel")
+                    return true;
+            }
+            return false;
+        }
+
 
         public static bool IsParachute(this Part p)
         {
@@ -104,6 +116,16 @@ namespace GravityTurn
                 ModuleEngines eng = m as ModuleEngines;
                 if (eng != null) return !eng.getFlameoutState;
 
+            }
+            return false;
+        }
+        public static bool FuelTankHasFuel(this Part p)
+        {
+            for (int i = 0; i < p.Resources.Count; i++)
+            {
+                PartResource r = p.Resources[i];
+                if (r.resourceName == "LiquidFuel")
+                    return r.amount > 0;
             }
             return false;
         }

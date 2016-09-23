@@ -360,7 +360,10 @@ namespace GravityTurn
 
         public void Drive(FlightCtrlState s)
         {
-            if (useSAS)
+            // AndyMt: this code is from MechJeb as far as I can tell. 
+            // Check there how SAS works as soon as it's ported to 1.2. 
+            // Until then we don't use SAS which seems to be the default anyway.
+/*            if (useSAS)
             {
                 _requestedAttitude = attitudeGetReferenceRotation(attitudeReference) * attitudeTarget * Quaternion.Euler(90, 0, 0);
                 if (!vessel.ActionGroups[KSPActionGroup.SAS])
@@ -380,7 +383,7 @@ namespace GravityTurn
                 }
 
             }
-            else
+            else*/
             {
                 // Direction we want to be facing
                 _requestedAttitude = attitudeGetReferenceRotation(attitudeReference) * attitudeTarget;
