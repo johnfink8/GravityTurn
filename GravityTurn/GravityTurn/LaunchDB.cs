@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using KSP.IO;
 using System.IO;
+using Smooth.Slinq;
 using UnityEngine;
 
 
@@ -119,9 +120,7 @@ namespace GravityTurn
             if (DB.Count < 2)
                 return null;
             double loss = 0;
-            //TODO: Solve DB.OrderBy(o=>(o.TurnAngle/o.StartSpeed)))
-            //foreach (DBEntry entry in DB.OrderBy(o => (o.TurnAngle / o.StartSpeed)))
-            foreach (DBEntry entry in DB)
+            foreach (DBEntry entry in DB.Slinq().OrderBy(o => (o.TurnAngle / o.StartSpeed)).ToList() )
             {
                 if (entry.MaxHeat > 0.95) // Stop if we find one TOO aggressive
                     break;
