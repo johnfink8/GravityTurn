@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using UnityEngine;
 using System.Threading;
 
 namespace GravityTurn
@@ -13,7 +11,8 @@ namespace GravityTurn
     //it got another RequestUpdate in the meantime.
     public class StageStats
     {
-        public StageStats() : base() { }
+        private StageController Stage;
+        public StageStats(StageController stage) : base() { Stage = stage;  }
 
         public static Vessel vessel { get { return FlightGlobals.ActiveVessel; } }
         public bool dVLinearThrust = true;
@@ -88,7 +87,7 @@ namespace GravityTurn
 
                 //Create two FuelFlowSimulations, one for vacuum and one for atmosphere
                 List<Part> parts = (HighLogic.LoadedSceneIsEditor ? EditorLogic.fetch.ship.parts : vessel.parts);
-                FuelFlowSimulation[] sims = { new FuelFlowSimulation(parts, dVLinearThrust), new FuelFlowSimulation(parts, dVLinearThrust) };
+                FuelFlowSimulation[] sims = { new FuelFlowSimulation(Stage, parts, dVLinearThrust), new FuelFlowSimulation(Stage, parts, dVLinearThrust) };
 
                 //Run the simulation in a separate thread
                 ThreadPool.QueueUserWorkItem(RunSimulation, sims);

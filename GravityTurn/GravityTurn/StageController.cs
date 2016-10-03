@@ -1,12 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using KSP.UI.Screens;
 
 namespace GravityTurn
 {
-    public class StageController 
+    public class StageController
     {
         public StageController(GravityTurner turner)
 
@@ -18,8 +17,8 @@ namespace GravityTurn
         public static Vessel vessel { get { return FlightGlobals.ActiveVessel; } }
         private VesselState vesselState { get { return turner.vesselState; } }
         //adjustable parameters:
-        public EditableValue autostagePostDelay = new EditableValue(0.5d,"{0:0.0}");
-        public EditableValue autostagePreDelay = new EditableValue(1.0d, "{0:0.0}");
+        public EditableValue autostagePostDelay = new EditableValue(0.3d, "{0:0.0}");
+        public EditableValue autostagePreDelay = new EditableValue(0.3d, "{0:0.0}");
         public EditableValue autostageLimit = new EditableValue(0, "{0:0}");
 
         public bool autoStageManagerOnce = false;
@@ -109,16 +108,53 @@ namespace GravityTurn
         }
         ModuleEngines EnabledEngine(Part p)
         {
-            return p.Modules.OfType<ModuleEngines>().First(IsEnabledEngine);
+            for (int i = 0; i < p.Modules.Count; i++)
+            {
+                ModuleEngines m = p.Modules[i] as ModuleEngines;
+                if (m && IsEnabledEngine(m as ModuleEngines))
+                {
+                    return m;
+                }
+            }
+            return null;
         }
+        List<Part> GetEnginesOfVessel(Vessel v)
+        {
+            var engines = new List<Part>();
+
+            for (int i = 0; i < v.Parts.Count; i++)
+            {
+                if (PartIsEngine(v.Parts[i]))
+                    engines.Add(v.Parts[i]);
+            }
+            return engines;
+        }
+        List<ModuleEngines> GetEnabledEnginesOfVessel(Vessel v)
+        {
+            var engineModules = new List<ModuleEngines>();
+            for (int i = 0; i < v.Parts.Count; i++)
+            {
+                Part p = v.Parts[i];
+                if (PartIsEngine(p) && EnabledEngine(p))
+                    engineModules.Add(EnabledEngine(p));
+            }
+            return engineModules;
+        }
+
 
         public List<int> FindBurnedResources()
         {
-            //return new List<int>();
-            var activeEngines = vessel.parts.Where(PartIsEngine);
-            var engineModules = activeEngines.Select(EnabledEngine);
-            var burnedPropellants = engineModules.SelectMany(eng => eng.propellants);
-            List<int> propellantIDs = burnedPropellants.Select(prop => prop.id).ToList();
+            var engineModules = GetEnabledEnginesOfVessel(vessel);
+
+            var propellantIDs = new List<int>();
+            for (int eng = 0; eng < engineModules.Count; eng++)
+            {
+                var e = engineModules[eng];
+                for (int i = 0; i < e.propellants.Count; i++)
+                {
+                    propellantIDs.Add(e.propellants[i].id);
+                }
+            }
 
             return propellantIDs;
         }
@@ -216,13 +252,13 @@ namespace GravityTurn
             return false;
         }
 
-        public static bool HasStayingFairing(int inverseStage,Vessel v)
+        public static bool HasStayingFairing(int inverseStage, Vessel v)
         {
             foreach (Part p in v.parts)
             {
-                if (p.inverseStage == inverseStage && 
-                    !p.IsDecoupledInStage(inverseStage) && 
-                    p.FindModulesImplementing<ModuleProceduralFairing>().Any())
+                if (p.inverseStage == inverseStage &&
+                    !p.IsDecoupledInStage(inverseStage) &&
+                    p.FindModulesImplementing<ModuleProceduralFairing>().Count > 0)
                     return true;
             }
             return false;

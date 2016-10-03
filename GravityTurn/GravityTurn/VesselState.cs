@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using UnityEngine;
 
@@ -987,7 +986,7 @@ namespace GravityTurn
         private static bool stockGimbalIsValid(PartModule p)
         {
             ModuleGimbal gimbal = p as ModuleGimbal;
-            return gimbal.initRots.Any();
+            return gimbal.initRots.Count > 0;
         }
 
         private static Vector3d stockGimbalTorqueVector(PartModule p, int i, Vector3d CoM)

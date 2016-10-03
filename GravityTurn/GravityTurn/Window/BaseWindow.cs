@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using UnityEngine;
 using KSP.IO;
@@ -66,7 +65,7 @@ namespace GravityTurn.Window
             this.turner = turner;
             turner.windowManager.Register(this);
             WindowID = inWindowID;
-            filename = IOUtils.GetFilePathFor(turner.GetType(), string.Format("gt_window_{0}.cfg", WindowID));
+            filename = LaunchDB.GetBaseFilePath(turner.GetType(), string.Format("gt_window_{0}.cfg", WindowID));
             Load();
         }
 
@@ -96,14 +95,13 @@ namespace GravityTurn.Window
                 WindowVisible = false;
             }
             GUI.DragWindow(new Rect(0, 0, 10000, 20));
-
         }
         public void drawGUI()
         {
             if (WindowVisible)
             {
                 GUI.skin = HighLogic.Skin;
-                windowPos = GUILayout.Window(WindowID, windowPos, WindowGUI, WindowTitle, GUILayout.MinWidth(300));
+                windowPos = GUILayout.Window(WindowID, windowPos, WindowGUI, WindowTitle, GUILayout.MinWidth(400));
             }
         }
 

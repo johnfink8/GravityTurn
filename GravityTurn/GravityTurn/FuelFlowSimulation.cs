@@ -1,9 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using CompoundParts;
 using UnityEngine;
 using KSP.UI.Screens;
+using Smooth.Slinq;
+using Smooth.Dispose;
+using Smooth.Pools;
+using Smooth.Algebraics;
 
 namespace GravityTurn
 {
@@ -12,18 +15,32 @@ namespace GravityTurn
         public int simStage; //the simulated rocket's current stage
         readonly List<FuelNode> nodes; //a list of FuelNodes representing all the parts of the ship
         public float t;
+        public StageController Stage;
 
         private double KpaToAtmospheres;
 
         //Takes a list of parts so that the simulation can be run in the editor as well as the flight scene
-        public FuelFlowSimulation(List<Part> parts, bool dVLinearThrust)
+        public FuelFlowSimulation(StageController stage, List<Part> parts, bool dVLinearThrust)
         {
+            Stage = stage;
             KpaToAtmospheres = PhysicsGlobals.KpaToAtmospheres;
 
             // Create FuelNodes corresponding to each Part
             nodes = new List<FuelNode>();
-            Dictionary<Part, FuelNode> nodeLookup = parts.ToDictionary(p => p, p => new FuelNode(p, dVLinearThrust));
-            nodes = nodeLookup.Values.ToList();
+            //Dictionary<Part, FuelNode> nodeLookup = parts.ToDictionary(p => p, p => new FuelNode(p, dVLinearThrust));
+            var nodeLookup = new Dictionary<Part, FuelNode>();
+            for (int i = 0; i < parts.Count; i++)
+            {
+                nodeLookup.Add(parts[i], new FuelNode(parts[i], dVLinearThrust));
+            }
+
+            FuelNode[] arr = new FuelNode[nodeLookup.Count];
+            nodeLookup.Values.CopyTo(arr,0);
+            for (int i=0; i < arr.Length; i++)
+            {
+                nodes.Add(arr[i]);
+
+            }
 
             // Determine when each part will be decoupled
             Part rootPart = parts[0]; // hopefully always correct
@@ -152,29 +169,30 @@ namespace GravityTurn
             stats.startMass = VesselMass(simStage);
             stats.startThrust = VesselThrust(throttle, staticPressure, atmDensity, machNumber); // NK
 
-            List<FuelNode> engines = FindActiveEngines();
-
-            if (engines.Count > 0)
+            using (var engines = FindActiveEngines())
             {
-                for (int i = 0; i < engines.Count; i++)
+                if (engines.value.Count > 0)
                 {
-                    engines[i].AssignResourceDrainRates(nodes);
+                    for (int i = 0; i < engines.value.Count; i++)
+                    {
+                        engines.value[i].AssignResourceDrainRates(nodes);
+                    }
+                    //foreach (FuelNode n in nodes) n.DebugDrainRates();
+
+                    float maxDt = nodes.Slinq().Select(n => n.MaxTimeStep()).Min();
+                    dt = Mathf.Min(desiredDt, maxDt);
+
+                    //print("Simulating time step of " + dt);
+
+                    for (int i = 0; i < nodes.Count; i++)
+                    {
+                        nodes[i].DrainResources(dt);
+                    }
                 }
-                //foreach (FuelNode n in nodes) n.DebugDrainRates();
-
-                float maxDt = nodes.Min(n => n.MaxTimeStep());
-                dt = Mathf.Min(desiredDt, maxDt);
-
-                //print("Simulating time step of " + dt);
-
-                for (int i = 0; i < nodes.Count; i++)
+                else
                 {
-                    nodes[i].DrainResources(dt);
+                    dt = 0;
                 }
-            }
-            else
-            {
-                dt = 0;
             }
 
             stats.deltaTime = dt;
@@ -184,8 +202,6 @@ namespace GravityTurn
             stats.ComputeTimeStepDeltaV();
             stats.isp = stats.startMass > stats.endMass ? stats.deltaV / (9.80665f * Mathf.Log(stats.startMass / stats.endMass)) : 0;
 
-            t += dt;
-
             return stats;
         }
 
@@ -193,19 +209,23 @@ namespace GravityTurn
         public void SimulateStageActivation()
         {
             simStage--;
-
-            List<FuelNode> decoupledNodes = nodes.Where(n => n.decoupledInStage == simStage).ToList();
-
-            for (int i = 0; i < decoupledNodes.Count; i++)
+            using (Disposable<List<FuelNode>> decoupledNodes = ListPool<FuelNode>.Instance.BorrowDisposable())
             {
-                nodes.Remove(decoupledNodes[i]); //remove the decoupled nodes from the simulated ship
-            }
 
-            for (int i = 0; i < nodes.Count; i++)
-            {
-                for (int j = 0; j < decoupledNodes.Count; j++)
+                //List<FuelNode> decoupledNodes = nodes.Where(n => n.decoupledInStage == simStage).ToList();
+                nodes.Slinq().Where((n, stage) => n.decoupledInStage == stage, simStage).AddTo(decoupledNodes);
+
+                for (int i = 0; i < decoupledNodes.value.Count; i++)
                 {
-                    nodes[i].RemoveSourceNode(decoupledNodes[j]); //remove the decoupled nodes from the remaining nodes' source lists
+                    nodes.Remove(decoupledNodes.value[i]); //remove the decoupled nodes from the simulated ship
+                }
+
+                for (int i = 0; i < nodes.Count; i++)
+                {
+                    for (int j = 0; j < decoupledNodes.value.Count; j++)
+                    {
+                        nodes[i].RemoveSourceNode(decoupledNodes.value[j]); //remove the decoupled nodes from the remaining nodes' source lists
+                    }
                 }
             }
         }
@@ -215,63 +235,67 @@ namespace GravityTurn
         {
             //print("Checking whether allowed to stage at t = " + t);
 
-            List<FuelNode> activeEngines = FindActiveEngines();
-
-            //print("  activeEngines.Count = " + activeEngines.Count);
-
-            //if no engines are active, we can always stage
-            if (activeEngines.Count == 0)
+            using (var activeEngines = FindActiveEngines())
             {
-                //print("Allowed to stage because no active engines");
-                return true;
-            }
+                //print("  activeEngines.Count = " + activeEngines.Count);
 
-            List<int> burnedResources = activeEngines.SelectMany(eng => eng.BurnedResources()).Distinct().ToList();
-
-            //if StageManager would decouple an active engine or non-empty fuel tank, we're not allowed to stage
-            for (int i = 0; i < nodes.Count; i++)
-            {
-                FuelNode n = nodes[i];
-                //print(n.partName + " is sepratron? " + n.isSepratron);
-                if (n.decoupledInStage == (simStage - 1) && !n.isSepratron)
+                //if no engines are active, we can always stage
+                if (activeEngines.value.Count == 0)
                 {
-                    if (activeEngines.Contains(n) || n.ContainsResources(burnedResources))
+                    //print("Allowed to stage because no active engines");
+                    return true;
+                }
+
+                using (Disposable<List<int>> burnedResources = ListPool<int>.Instance.BorrowDisposable())
+                {
+                    activeEngines.value.Slinq().SelectMany(eng => eng.BurnedResources().Slinq()).Distinct().AddTo(burnedResources);
+
+                    //if staging would decouple an active engine or non-empty fuel tank, we're not allowed to stage
+                    for (int i = 0; i < nodes.Count; i++)
                     {
-                        //print("Not allowed to stage because " + n.partName + " either contains resources or is an active engine");
-                        return false;
+                        FuelNode n = nodes[i];
+                        //print(n.partName + " is sepratron? " + n.isSepratron);
+                        if (n.decoupledInStage == (simStage - 1) && !n.isSepratron)
+                        {
+                            if (activeEngines.value.Contains(n) || n.ContainsResources(burnedResources.value))
+                            {
+                                //print("Not allowed to stage because " + n.partName + " either contains resources or is an active engine");
+                                return false;
+                            }
+                        }
                     }
                 }
-            }
 
-            // We are not allowed to stage if the stage does not decouple anything, and there is an active engine that still has access to resources
-            {
-                bool activeEnginesWorking = false;
-                bool partDecoupledInNextStage = false;
-
-                for (int i = 0; i < nodes.Count; i++)
+                // We are not allowed to stage if the stage does not decouple anything, and there is an active engine that still has access to resources
                 {
-                    FuelNode n = nodes[i];
-                    if (activeEngines.Contains(n))
+                    bool activeEnginesWorking = false;
+                    bool partDecoupledInNextStage = false;
+
+                    for (int i = 0; i < nodes.Count; i++)
                     {
-                        if (n.CanDrawNeededResources(nodes))
+                        FuelNode n = nodes[i];
+                        if (activeEngines.value.Contains(n))
                         {
-                            //print("Part " + n.partName + " is an active engine that still has resources to draw on.");
-                            activeEnginesWorking = true;
+                            if (n.CanDrawNeededResources(nodes))
+                            {
+                                //print("Part " + n.partName + " is an active engine that still has resources to draw on.");
+                                activeEnginesWorking = true;
+                            }
+                        }
+
+                        if (n.decoupledInStage == (simStage - 1))
+                        {
+                            //print("Part " + n.partName + " is decoupled in the next stage.");
+
+                            partDecoupledInNextStage = true;
                         }
                     }
 
-                    if (n.decoupledInStage == (simStage - 1))
+                    if (!partDecoupledInNextStage && activeEnginesWorking)
                     {
-                        //print("Part " + n.partName + " is decoupled in the next stage.");
-
-                        partDecoupledInNextStage = true;
+                        //print("Not allowed to stage because nothing is decoupled in the enst stage, and there are already other engines active.");
+                        return false;
                     }
-                }
-
-                if (!partDecoupledInNextStage && activeEnginesWorking)
-                {
-                    //print("Not allowed to stage because nothing is decoupled in the enst stage, and there are already other engines active.");
-                    return false;
                 }
             }
 
@@ -298,17 +322,28 @@ namespace GravityTurn
             return sum;
         }
 
-        public float VesselThrust(float throttle, double staticPressure, double atmDensity, double machNumber)
+        private float VesselThrust(float throttle, double staticPressure, double atmDensity, double machNumber)
         {
-            return FindActiveEngines().Sum(eng => eng.EngineThrust(throttle, staticPressure, atmDensity, machNumber));
+            var param = new Tuple<float, double, double, double>(throttle, staticPressure, atmDensity, machNumber);
+
+            using (var activeEngines = FindActiveEngines())
+            {
+                return activeEngines.value.Slinq().Select((eng, t) => eng.EngineThrust(t.Item1, t.Item2, t.Item3, t.Item4), param).Sum();
+            }
+            //return FindActiveEngines().Sum(eng => eng.EngineThrust(throttle, staticPressure, atmDensity, machNumber));
         }
 
         //Returns a list of engines that fire during the current simulated stage.
-        public List<FuelNode> FindActiveEngines()
+        private Disposable<List<FuelNode>> FindActiveEngines()
         {
+            var param = new Smooth.Algebraics.Tuple<int, List<FuelNode>>(simStage, nodes);
+            var activeEngines = ListPool<FuelNode>.Instance.BorrowDisposable();
             //print("Finding active engines: excluding resource considerations, there are " + nodes.Count(n => n.isEngine && n.inverseStage >= simStage));
-            return nodes.Where(n => n.isEngine && n.inverseStage >= simStage && n.CanDrawNeededResources(nodes)).ToList();
+            nodes.Slinq().Where((n, p) => n.isEngine && n.inverseStage >= p.Item1 && n.CanDrawNeededResources(p.Item2), param).AddTo(activeEngines.value);
+            return activeEngines;
+            //return nodes.Where(n => n.isEngine && n.inverseStage >= simStage && n.CanDrawNeededResources(nodes)).ToList();
         }
+
 
         //A Stats struct describes the result of the simulation over a certain interval of time (e.g., one stage)
         public struct Stats
@@ -377,7 +412,8 @@ namespace GravityTurn
         readonly bool useVelCurve;
         readonly FloatCurve velCurve;
 
-        readonly Dictionary<int, float> propellantRatios; //ratios of propellants used by this engine
+        KeyableDictionary<int, float> propellantRatios; //ratios of propellants used by this engine
+        KeyableDictionary<int, ResourceFlowMode> propellantFlows = new KeyableDictionary<int, ResourceFlowMode>();  //flow modes of propellants since the engine can override them
         readonly float propellantSumRatioTimesDensity;    //a number used in computing propellant consumption rates
 
         readonly List<FuelNode> fuelLineSources = new List<FuelNode>();
@@ -398,6 +434,8 @@ namespace GravityTurn
         public bool isEngine = false;   //whether this part is an engine
 
         readonly float dryMass = 0; //the mass of this part, not counting resource mass
+        float modulesUnstagedMass;   // the mass of the modules of this part before staging
+        float modulesStagedMass = 0; // the mass of the modules of this part after staging
         readonly float fairingMass = 0; //the mass of the fairing of this part
 
         public string partName; //for debugging
@@ -410,6 +448,10 @@ namespace GravityTurn
             {
                 //print(part.partInfo.name.PadRight(25) + " " + part.mass.ToString("F4") + " " + part.GetPhysicslessChildMass().ToString("F4") + " " + part.GetModuleMass(part.partInfo.partPrefab.mass).ToString("F4"));
                 dryMass = part.mass; // Intentionally ignore the physic flag.
+
+                modulesUnstagedMass = part.GetModuleMassNoAlloc(dryMass, ModifierStagingSituation.UNSTAGED);
+
+                modulesStagedMass = part.GetModuleMassNoAlloc(dryMass, ModifierStagingSituation.STAGED);
 
                 moduleMass = part.GetModuleMass(part.partInfo.partPrefab != null ? part.partInfo.partPrefab.mass : dryMass);
                 if (part.HasModule<ModuleProceduralFairing>())
@@ -441,7 +483,19 @@ namespace GravityTurn
             // TODO : handle the multiple active ModuleEngine case ( SXT engines with integrated vernier )
 
             //record relevant engine stats
-            ModuleEngines engine = part.Modules.OfType<ModuleEngines>().FirstOrDefault(e => e.isEnabled);
+            ModuleEngines engine = null;
+            for (int i = 0; i < part.Modules.Count; i++)
+            {
+                PartModule pm = part.Modules[i];
+                ModuleEngines e = pm as ModuleEngines;
+                if (e != null && e.isEnabled)
+                {
+                    engine = e;
+                    break;
+                }
+            }
+
+            //            ModuleEngines engine = turner
             if (engine != null)
             {
                 //Only count engines that either are ignited or will ignite in the future:
@@ -482,8 +536,17 @@ namespace GravityTurn
                     if (useAtmCurve)
                         velCurve = new FloatCurve(engine.velCurve.Curve.keys);
 
-                    propellantSumRatioTimesDensity = engine.propellants.Where(prop => !prop.ignoreForIsp).Sum(prop => prop.ratio * MuUtils.ResourceDensity(prop.id));
-                    propellantRatios = engine.propellants.Where(prop => MuUtils.ResourceDensity(prop.id) > 0 && !prop.ignoreForIsp).ToDictionary(prop => prop.id, prop => prop.ratio);
+                    propellantSumRatioTimesDensity = engine.propellants.Slinq().Where(prop => !prop.ignoreForIsp).Select(prop => prop.ratio * MuUtils.ResourceDensity(prop.id)).Sum();
+                    propellantRatios.Clear();
+                    propellantFlows.Clear();
+                    var dics = new Tuple<KeyableDictionary<int, float>, KeyableDictionary<int, ResourceFlowMode>>(propellantRatios, propellantFlows);
+                    engine.propellants.Slinq()
+                        .Where(prop => MuUtils.ResourceDensity(prop.id) > 0 && !prop.ignoreForIsp)
+                        .ForEach((p, dic) =>
+                        {
+                            dic.Item1.Add(p.id, p.ratio);
+                            dic.Item2.Add(p.id, p.GetFlowMode());
+                        }, dics);
                 }
             }
         }
@@ -524,7 +587,13 @@ namespace GravityTurn
                 float massFlowRate = Mathf.Lerp(minFuelFlow, maxFuelFlow, throttle * 0.01f * thrustPercentage) * flowModifier;
 
                 //propellant consumption rate = ratio * massFlowRate / sum(ratio * density)
-                resourceConsumptions = propellantRatios.Keys.ToDictionary(id => id, id => propellantRatios[id] * massFlowRate / propellantSumRatioTimesDensity);
+                //resourceConsumptions = propellantRatios.Keys.ToDictionary(id => id, id => propellantRatios[id] * massFlowRate / propellantSumRatioTimesDensity);
+                resourceConsumptions.Clear();
+                for (int i = 0; i < propellantRatios.KeysList.Count; i++)
+                {
+                    int id = propellantRatios.KeysList[i];
+                    resourceConsumptions.Add(id, propellantRatios[id] * massFlowRate / propellantSumRatioTimesDensity);
+                }
             }
         }
 
@@ -614,8 +683,10 @@ namespace GravityTurn
             //          + " ModuleMass " + moduleMass.ToString("F3")
             //          );
 
-            return dryMass + resources.Keys.Sum(id => resources[id] * MuUtils.ResourceDensity(id)) +
-                   (inverseStage < simStage ? fairingMass : 0);
+            //return dryMass + resources.Keys.Sum(id => resources[id] * MuUtils.ResourceDensity(id)) +
+            float resMass = resources.KeysList.Slinq().Select((r, rs) => rs[r] * MuUtils.ResourceDensity(r), resources).Sum();
+            return dryMass + resMass +
+                   (inverseStage < simStage ? modulesUnstagedMass : modulesStagedMass);
         }
 
         public float EngineThrust(float throttle, double atmospheres, double atmDensity, double machNumber)
@@ -641,8 +712,9 @@ namespace GravityTurn
 
         public float MaxTimeStep()
         {
-            if (!resourceDrains.Keys.Any(id => resources[id] > DRAINED)) return float.MaxValue;
-            return resourceDrains.Keys.Where(id => resources[id] > DRAINED).Min(id => resources[id] / resourceDrains[id]);
+            var param = new Tuple<DefaultableDictionary<int, float>, float, DefaultableDictionary<int, float>>(resources, DRAINED, resourceDrains);
+            if (!resourceDrains.KeysList.Slinq().Any((id, p) => p.Item1[id] > p.Item2, param)) return float.MaxValue;
+            return resourceDrains.KeysList.Slinq().Where((id, p) => p.Item1[id] > p.Item2, param).Select((id, p) => p.Item1[id] / p.Item3[id], param).Min();
         }
 
         //Returns an enumeration of the resources this part burns
@@ -654,7 +726,8 @@ namespace GravityTurn
         //returns whether this part contains any of the given resources
         public bool ContainsResources(IEnumerable<int> whichResources)
         {
-            return whichResources.Any(id => resources[id] > DRAINED);
+            //return whichResources.Any(id => resources[id] > DRAINED);
+            return whichResources.Slinq().Any((id, r) => r[id] > DRAINED, resources);
         }
 
         public bool CanDrawNeededResources(List<FuelNode> vessel)
@@ -671,12 +744,12 @@ namespace GravityTurn
                     case ResourceFlowMode.STAGE_PRIORITY_FLOW:
                     case ResourceFlowMode.ALL_VESSEL:
                         //check if any part contains the needed resource:
-                        if (!vessel.Any(n => n.resources[type] > DRAINED)) return false;
+                        if (!vessel.Slinq().Any((n, t) => n.resources[t] > DRAINED, type)) return false;
                         break;
 
                     case ResourceFlowMode.STACK_PRIORITY_SEARCH:
                         // check if we can get any of the needed resources
-                        if (!FindFuelSourcesStackPriority(type).Any()) return false;
+                        if (FindFuelSourcesStackPriority(type).Count == 0) return false;
                         break;
 
                     default:
@@ -754,7 +827,7 @@ namespace GravityTurn
         void AssignFuelDrainRateStackPriority(int type, float amount)
         {
             HashSet<FuelNode> sources = FindFuelSourcesStackPriority(type);
-            float amountPerSource = amount / sources.Count();
+            float amountPerSource = amount / sources.Count;
             foreach (FuelNode source in sources) source.resourceDrains[type] += amountPerSource;
         }
 
