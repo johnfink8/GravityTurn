@@ -43,8 +43,8 @@ namespace GravityTurn
         [Persistent]
         public bool EnableStageManager = true;
         [Persistent]
-        public EditableValue FairingPressure = new EditableValue(0, "{0:0}");
-
+        public EditableValue FairingPressure = new EditableValue(10000, "{0:0}");
+        
 
         #endregion
 
@@ -200,6 +200,7 @@ namespace GravityTurn
             openFlightmap = flightMapWindow.WindowVisible;
             flightMapWindow.flightMap = new FlightMap(this);
             flightMapWindow.WindowVisible = openFlightmap;
+            mainWindow.windowPos.height = 200;
         }
 
         private void CreateButtonIcon()
@@ -472,6 +473,9 @@ namespace GravityTurn
 
         void CalculateLosses(Vessel vessel)
         {
+            if (vesselState.mass == 0)
+                return;
+
             double fwdAcceleration = Vector3d.Dot(vessel.acceleration, vesselState.forward.normalized);
             double GravityDrag = Vector3d.Dot(vesselState.gravityForce, -vessel.obt_velocity.normalized);
             double TimeInterval = Time.time - FlyTimeInterval;
@@ -507,6 +511,7 @@ Total Burn: {8:0.0}",
                 DragLoss + GravityDragLossAtAp + VectorLoss,
                 TotalBurn
                 );
+
         }
 
         void LoadParameters()

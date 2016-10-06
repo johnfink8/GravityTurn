@@ -100,8 +100,9 @@ namespace GravityTurn.Window
         {
             if (WindowVisible)
             {
-                GUI.skin = HighLogic.Skin;
-                windowPos = GUILayout.Window(WindowID, windowPos, WindowGUI, WindowTitle, GUILayout.MinWidth(400));
+                GuiUtils.LoadSkin(GuiUtils.SkinType.Compact);
+                GUI.skin = GuiUtils.skin;
+                windowPos = GUILayout.Window(WindowID, windowPos, WindowGUI, WindowTitle, GUILayout.MinWidth(300));
             }
         }
 

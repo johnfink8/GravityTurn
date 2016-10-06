@@ -17,6 +17,7 @@ namespace GravityTurn.Window
             turner = inTurner;
             helpWindow = new HelpWindow(inTurner,inWindowID+1);
             stagesettings = new StageSettings(inTurner, inWindowID + 2,helpWindow);
+            windowPos.height = 200;
         }
 
         public override void WindowGUI(int windowID)
@@ -91,7 +92,7 @@ namespace GravityTurn.Window
                 helpWindow.Button("Improve Guess will try to extrapolate the best settings based on previous launches.  This may end in fiery death, but it won't happen the same way twice.  Be warned, sometimes launches get worse before they get better.  But they do get better.");
             }
             GUILayout.EndHorizontal();
-            if (GravityTurner.getVessel.Landed && !turner.Launching && GUILayout.Button("Launch!"))
+            if (GravityTurner.getVessel.Landed && !turner.Launching && GUILayout.Button("Launch!", GUILayout.ExpandWidth(true)))
             {
                 turner.Launch();
             }
