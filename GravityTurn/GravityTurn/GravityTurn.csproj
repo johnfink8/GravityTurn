@@ -95,6 +95,7 @@
     <Compile Include="Window\HelpWindow.cs" />
     <Compile Include="Window\MainWindow.cs" />
     <Compile Include="Window\StageSettings.cs" />
+    <Compile Include="Window\StatsWindow.cs" />
     <Compile Include="Window\WindowManager.cs" />
   </ItemGroup>
   <ItemGroup>

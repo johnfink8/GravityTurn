@@ -16,8 +16,8 @@ namespace GravityTurn.Window
         {
             turner = inTurner;
             helpWindow = new HelpWindow(inTurner,inWindowID+1);
-            stagesettings = new StageSettings(inTurner, inWindowID + 2,helpWindow);
-            windowPos.height = 200;
+            stagesettings = new StageSettings(inTurner, inWindowID + 2, helpWindow);
+            windowPos.width = 300;
         }
 
         public override void WindowGUI(int windowID)
@@ -78,6 +78,13 @@ namespace GravityTurn.Window
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
             turner.flightMapWindow.WindowVisible = GUILayout.Toggle(turner.flightMapWindow.WindowVisible, "Show Launch Map");
+            turner.EnableStats = GUILayout.Toggle(turner.EnableStats, "Show Stats", GUILayout.ExpandWidth(false));
+            if (turner.statsWindow.WindowVisible != turner.EnableStats)
+            {
+                turner.statsWindow.WindowVisible = turner.EnableStats;
+                turner.statsWindow.Save();
+                turner.SaveParameters();
+            }
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
             GUILayout.Label(string.Format("Time to match: {0:0.0}", turner.HoldAPTime), GUILayout.ExpandWidth(false));
@@ -100,7 +107,6 @@ namespace GravityTurn.Window
             {
                 turner.Kill();
             }
-            GUILayout.Label(turner.Message);
             GUILayout.EndVertical();
             double StopHeight = GravityTurner.getVessel.mainBody.atmosphereDepth;
             if (StopHeight <= 0)
