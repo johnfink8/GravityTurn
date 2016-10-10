@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using UnityEngine;
 
@@ -17,7 +16,8 @@ namespace GravityTurn.Window
         {
             turner = inTurner;
             helpWindow = new HelpWindow(inTurner,inWindowID+1);
-            stagesettings = new StageSettings(inTurner, inWindowID + 2,helpWindow);
+            stagesettings = new StageSettings(inTurner, inWindowID + 2, helpWindow);
+            windowPos.width = 300;
         }
 
         public override void WindowGUI(int windowID)
@@ -55,7 +55,7 @@ namespace GravityTurn.Window
             ItemLabel("Destination Height (km)");
             turner.DestinationHeight.setValue(GUILayout.TextField(turner.DestinationHeight.ToString(), GUILayout.Width(60)));
             helpWindow.Button("Desired Apoapsis.");
-            GUILayout.EndHorizontal();
+             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
             ItemLabel("Roll");
             turner.Roll.setValue(GUILayout.TextField(turner.Roll.ToString(), GUILayout.Width(60)));
@@ -78,6 +78,13 @@ namespace GravityTurn.Window
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
             turner.flightMapWindow.WindowVisible = GUILayout.Toggle(turner.flightMapWindow.WindowVisible, "Show Launch Map");
+            turner.EnableStats = GUILayout.Toggle(turner.EnableStats, "Show Stats", GUILayout.ExpandWidth(false));
+            if (turner.statsWindow.WindowVisible != turner.EnableStats)
+            {
+                turner.statsWindow.WindowVisible = turner.EnableStats;
+                turner.statsWindow.Save();
+                turner.SaveParameters();
+            }
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
             GUILayout.Label(string.Format("Time to match: {0:0.0}", turner.HoldAPTime), GUILayout.ExpandWidth(false));
@@ -92,7 +99,7 @@ namespace GravityTurn.Window
                 helpWindow.Button("Improve Guess will try to extrapolate the best settings based on previous launches.  This may end in fiery death, but it won't happen the same way twice.  Be warned, sometimes launches get worse before they get better.  But they do get better.");
             }
             GUILayout.EndHorizontal();
-            if (GravityTurner.getVessel.Landed && !turner.Launching && GUILayout.Button("Launch!"))
+            if (GravityTurner.getVessel.Landed && !turner.Launching && GUILayout.Button("Launch!", GUILayout.ExpandWidth(true)))
             {
                 turner.Launch();
             }
@@ -100,7 +107,6 @@ namespace GravityTurn.Window
             {
                 turner.Kill();
             }
-            GUILayout.Label(turner.Message);
             GUILayout.EndVertical();
             double StopHeight = GravityTurner.getVessel.mainBody.atmosphereDepth;
             if (StopHeight <= 0)

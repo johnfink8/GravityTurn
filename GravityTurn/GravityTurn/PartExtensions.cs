@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 //using System.Threading.Tasks;
 using UnityEngine;
@@ -28,6 +27,21 @@ namespace GravityTurn
                     return module;
             }
             return null;
+        }
+        // An allocation free version of GetModuleMass
+        public static float GetModuleMassNoAlloc(this Part p, float defaultMass, ModifierStagingSituation sit)
+        {
+            float mass = 0f;
+
+            for (int i = 0; i < p.Modules.Count; i++)
+            {
+                IPartMassModifier m = p.Modules[i] as IPartMassModifier;
+                if (m != null)
+                {
+                    mass += m.GetModuleMass(defaultMass, sit);
+                }
+            }
+            return mass;
         }
         public static bool IsUnfiredDecoupler(this Part p)
         {
@@ -77,7 +91,7 @@ namespace GravityTurn
             for (int i = 0; i < p.Resources.Count; i++)
             {
                 PartResource r = p.Resources[i];
-                if (r.resourceName == "LiquidFuel")
+                if (r.resourceName == "LiquidFuel" || r.resourceName == "SolidFuel")
                     return true;
             }
             return false;
@@ -124,7 +138,7 @@ namespace GravityTurn
             for (int i = 0; i < p.Resources.Count; i++)
             {
                 PartResource r = p.Resources[i];
-                if (r.resourceName == "LiquidFuel")
+                if (r.resourceName == "LiquidFuel" || r.resourceName == "SolidFuel")
                     return r.amount > 0;
             }
             return false;

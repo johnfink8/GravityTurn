@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using System.Runtime.CompilerServices;
 using UnityEngine;
@@ -8,11 +7,12 @@ using KSP.IO;
 using System.IO;
 using System.Diagnostics;
 using KSP.UI.Screens;
+using KramaxReloadExtensions;
 
 namespace GravityTurn
 {
-    [KSPAddon(KSPAddon.Startup.Flight,false)]
-    public class GravityTurner : MonoBehaviour
+    [KSPAddon(KSPAddon.Startup.Flight, false)]
+    public class GravityTurner : ReloadableMonoBehaviour
     {
         public static Vessel getVessel { get { return FlightGlobals.ActiveVessel; } }
 
@@ -23,31 +23,32 @@ namespace GravityTurn
         [Persistent]
         public EditableValue HoldAPTime = new EditableValue(50);
         [Persistent]
-        public EditableValue APTimeStart = new EditableValue(40);
+        public EditableValue APTimeStart = new EditableValue(50);
         [Persistent]
-        public EditableValue APTimeFinish = new EditableValue(40);
+        public EditableValue APTimeFinish = new EditableValue(50);
         [Persistent]
         public EditableValue TurnAngle = new EditableValue(10);
         [Persistent]
-        public EditableValue Sensitivity = new EditableValue(0.2);
+        public EditableValue Sensitivity = new EditableValue(0.5);
         [Persistent]
-        public EditableValue Roll = new EditableValue(-90);
+        public EditableValue Roll = new EditableValue(0);
         [Persistent]
         public EditableValue DestinationHeight = new EditableValue(80);
         [Persistent]
-        public EditableValue PressureCutoff = new EditableValue(2500);
+        public EditableValue PressureCutoff = new EditableValue(1200);
         [Persistent]
         public EditableValue Inclination = new EditableValue(0);
         [Persistent]
         public bool EnableStageManager = true;
         [Persistent]
         public EditableValue FairingPressure = new EditableValue(10000, "{0:0}");
+        [Persistent]
+        public bool EnableStats = false;
 
 
         #endregion
 
         #region Misc. Public Variables
-
         public double HorizontalDistance = 0;
         public double MaxThrust = 0;
         public MovingAverage Throttle = new MovingAverage(10, 1);
@@ -68,6 +69,7 @@ namespace GravityTurn
         Window.MainWindow mainWindow = null;
         public Window.WindowManager windowManager = new Window.WindowManager();
         public Window.FlightMapWindow flightMapWindow;
+        public Window.StatsWindow statsWindow;
         public string Message = "";
 
         #endregion
@@ -122,7 +124,7 @@ namespace GravityTurn
 
         string ConfigFilename(Vessel vessel)
         {
-            return IOUtils.GetFilePathFor(this.GetType(), string.Format("gt_vessel_{0}_{1}.cfg",vessel.id.ToString(),vessel.mainBody.name));
+            return LaunchDB.GetBaseFilePath(this.GetType(), string.Format("gt_vessel_{0}_{1}.cfg",vessel.id.ToString(),vessel.mainBody.name));
         }
 
         private void OnGUI()
@@ -132,6 +134,14 @@ namespace GravityTurn
                 //myPreDrawQueue(); // Your current on preDrawQueue code
             }
             windowManager.DrawGuis(); // Your current on postDrawQueue code
+        }
+
+        /*
+         * Called after the scene is loaded.
+         */
+        public void Awake()
+        {
+            Log("GravityTurn: Awake {0}", this.GetInstanceID());
         }
 
         void Start()
@@ -144,7 +154,7 @@ namespace GravityTurn
                 attitude = new AttitudeController(this);
                 stage = new StageController(this);
                 attitude.OnStart();
-                stagestats = new StageStats();
+                stagestats = new StageStats(stage);
                 stagestats.editorBody = getVessel.mainBody;
                 stagestats.OnModuleEnabled();
                 stagestats.OnFixedUpdate();
@@ -155,8 +165,10 @@ namespace GravityTurn
                 LaunchBody = getVessel.mainBody;
                 launchdb = new LaunchDB(this);
                 launchdb.Load();
+
                 mainWindow = new Window.MainWindow(this, 6378070);
                 flightMapWindow = new Window.FlightMapWindow(this, 548302);
+                statsWindow = new Window.StatsWindow(this, 6378070 + 4);
             }
             catch (Exception ex)
             {
@@ -261,17 +273,17 @@ namespace GravityTurn
                 TurnAngle = guessTurn;
             }
             
-            APTimeFinish = 40;
-            APTimeStart = 40;
-            Sensitivity = 0.2;
+            APTimeFinish = 50;
+            APTimeStart = 50;
+            Sensitivity = 0.5;
             if (vessel.mainBody.atmosphereDepth > 0)
                 DestinationHeight = vessel.mainBody.atmosphereDepth + 10000;
             else
                 DestinationHeight = vessel.mainBody.timeWarpAltitudeLimits[1] + 10000;
             DestinationHeight /= 1000;
-            Roll = -90;
+            Roll = 0;
             Inclination = 0;
-            PressureCutoff = 2500;
+            PressureCutoff = 1200;
             SaveParameters();
         }
 
@@ -311,18 +323,33 @@ namespace GravityTurn
 
         void FixedUpdate()
         {
-            stagestats.editorBody = getVessel.mainBody;
-            vesselState.Update(getVessel);
-            attitude.OnFixedUpdate();
-            stagestats.OnFixedUpdate();
-            stagestats.RequestUpdate(this);
-            if (flightMapWindow.flightMap != null && Launching)
-                flightMapWindow.flightMap.UpdateMap(getVessel);
+            if (Launching)
+            {
+                stagestats.editorBody = getVessel.mainBody;
+                vesselState.Update(getVessel);
+                attitude.OnFixedUpdate();
+                stagestats.OnFixedUpdate();
+                stagestats.RequestUpdate(this);
+                if (flightMapWindow.flightMap != null && Launching)
+                    flightMapWindow.flightMap.UpdateMap(getVessel);
+            }
+            else if (EnableStats && !getVessel.Landed)
+            {
+                CalculateLosses(getVessel);
+                stagestats.editorBody = getVessel.mainBody;
+                vesselState.Update(getVessel);
+                attitude.OnFixedUpdate();
+                stagestats.OnFixedUpdate();
+                stagestats.RequestUpdate(this);
+            }
         }
 
         void Update()
         {
-            attitude.OnUpdate();
+            if (Launching)
+            {
+                attitude.OnUpdate();
+            }
         }
 
         private float MaxAngle(Vessel vessel)
@@ -338,7 +365,7 @@ namespace GravityTurn
 
         public string GetFlightMapFilename()
         {
-            return IOUtils.GetFilePathFor(this.GetType(), string.Format("gt_vessel_{0}_{1}.png", LaunchName, LaunchBody.name));
+            return LaunchDB.GetBaseFilePath(this.GetType(), string.Format("gt_vessel_{0}_{1}.png", LaunchName, LaunchBody.name));
         }
 
         public void Kill()
@@ -390,8 +417,6 @@ namespace GravityTurn
             Vessel vessel = getVessel;
             if (!Launching)
                 Kill();
-            //if (!WindowVisible) 
-            //    Kill();
             else if (vessel.orbit.ApA > DestinationHeight * 1000 && vessel.altitude > vessel.mainBody.atmosphereDepth)
             {
                 if (TimeWarp.CurrentRateIndex > 0)
@@ -456,6 +481,9 @@ namespace GravityTurn
 
         void CalculateLosses(Vessel vessel)
         {
+            if (vesselState.mass == 0)
+                return;
+
             double fwdAcceleration = Vector3d.Dot(vessel.acceleration, vesselState.forward.normalized);
             double GravityDrag = Vector3d.Dot(vesselState.gravityForce, -vessel.obt_velocity.normalized);
             double TimeInterval = Time.time - FlyTimeInterval;
@@ -474,14 +502,14 @@ namespace GravityTurn
                 MaxHeat = vessel.CriticalHeatPart().CriticalHeat();
             launchdb.RecordLaunch();
             Message = string.Format(
-@"Air Drag: {0:0.00}m/s²
-GravityDrag: {1:0.00}m/s²
-Thrust Vector Drag: {5:0.00}m/s²
-Air Drag Loss: {2:0.00}m/s
-Gravity Drag Loss: {3:0.00} -> {4:0.00}m/s (at AP)
-Total Vector Loss: {6:0.00}m/s
-Total Loss: {7:0.00}m/s
-Total Burn: {8:0.0}",
+                "Air Drag:\t\t{0:0.00}m/s²\n"+
+                "GravityDrag:\t{1:0.00}m/s²\n" +
+                "Thrust Vector Drag:\t{5:0.00}m/s²\n" +
+                "Air Drag Loss:\t{2:0.00}m/s\n" +
+                "Gravity Drag Loss:\t{3:0.00} -> {4:0.00}m/s (at AP)\n\n" +
+                "Total Vector Loss:\t{6:0.00}m/s\n" +
+                "Total Loss:\t{7:0.00}m/s\n"+
+                "Total Burn:\t\t{8:0.0}",
                 vesselState.drag,
                 GravityDrag,
                 DragLoss,
@@ -491,6 +519,7 @@ Total Burn: {8:0.0}",
                 DragLoss + GravityDragLossAtAp + VectorLoss,
                 TotalBurn
                 );
+
         }
 
         void LoadParameters()
@@ -518,7 +547,7 @@ Total Burn: {8:0.0}",
             }
         }
 
-        void SaveParameters()
+        public void SaveParameters()
         {
             Directory.CreateDirectory(Path.GetDirectoryName(ConfigFilename(getVessel)));
             ConfigNode savenode = ConfigNode.CreateConfigFromObject(this);
