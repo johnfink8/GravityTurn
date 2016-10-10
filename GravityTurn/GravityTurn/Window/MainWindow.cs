@@ -55,7 +55,7 @@ namespace GravityTurn.Window
             ItemLabel("Destination Height (km)");
             turner.DestinationHeight.setValue(GUILayout.TextField(turner.DestinationHeight.ToString(), GUILayout.Width(60)));
             helpWindow.Button("Desired Apoapsis.");
-            GUILayout.EndHorizontal();
+             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
             ItemLabel("Roll");
             turner.Roll.setValue(GUILayout.TextField(turner.Roll.ToString(), GUILayout.Width(60)));

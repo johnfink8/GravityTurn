@@ -7,9 +7,7 @@ using KSP.IO;
 using System.IO;
 using System.Diagnostics;
 using KSP.UI.Screens;
-#if DEBUG
 using KramaxReloadExtensions;
-#endif
 
 namespace GravityTurn
 {
