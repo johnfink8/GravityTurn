@@ -29,7 +29,7 @@ namespace GravityTurn
         [Persistent]
         public EditableValue TurnAngle = new EditableValue(10);
         [Persistent]
-        public EditableValue Sensitivity = new EditableValue(0.5);
+        public EditableValue Sensitivity = new EditableValue(0.3);
         [Persistent]
         public EditableValue Roll = new EditableValue(0);
         [Persistent]
@@ -422,9 +422,9 @@ namespace GravityTurn
                 if (TimeWarp.CurrentRateIndex > 0)
                     TimeWarp.SetRate(0, true);
                 launchdb.RecordLaunch();
+                Kill();
                 if (mucore.Initialized)
                     mucore.CircularizeAtAP();
-                Kill();
             }
             else
             {
