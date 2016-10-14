@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
-//using System.Threading.Tasks;
 using UnityEngine;
 using KSP.UI.Screens;
 
@@ -110,7 +109,8 @@ namespace GravityTurn
             //which uses (x, y, z) = (radial+, normal-, prograde)
             Vector3d nodeDV = patch.DeltaVToManeuverNodeCoordinates(UT, dV);
             ManeuverNode mn = vessel.patchedConicSolver.AddManeuverNode(UT);
-            mn.OnGizmoUpdated(nodeDV, UT);
+            mn.DeltaV = nodeDV;
+            vessel.patchedConicSolver.UpdateFlightPlan();
             return mn;
         }
 
