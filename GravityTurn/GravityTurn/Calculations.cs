@@ -14,10 +14,11 @@ namespace GravityTurn
             double timeToSpeed = (targetSpeed - StartSpeed) / vesselstate.maxVertAccel;
             return timeToSpeed;
         }
-
+        static float maxAoA = 0;
         public static float APThrottle(double timeToAP, GravityTurner turner)
         {
             Vessel vessel = GravityTurner.getVessel;
+            GravityTurner.DebugMessage = String.Format("");
             if (vessel.speed < turner.StartSpeed)
                 turner.Throttle.value = 1.0f;
             else
@@ -56,6 +57,15 @@ namespace GravityTurn
                     else
                         turner.Throttle.value -= diff;
                 }
+                if (Math.Abs(maxAoA) < Math.Abs(turner.vesselState.AoA))
+                    maxAoA = turner.vesselState.AoA;
+
+                GravityTurner.DebugMessage += String.Format("max Angle of Attack: {0:0.00}\n", maxAoA);
+                GravityTurner.DebugMessage += String.Format("cur Angle of Attack: {0:0.00}\n", turner.vesselState.AoA.value);
+                GravityTurner.DebugMessage += String.Format("cur Prograde Pitch: {0:0.00}\n", vessel.ProgradePitch() + 90f);
+                GravityTurner.DebugMessage += String.Format("cur Pitch to Surface: {0:0.00}\n", 90d-turner.vesselState.vesselPitch);
+                GravityTurner.DebugMessage += String.Format("-\n");
+
             }
             if (turner.PitchAdjustment < 0)
                 turner.PitchAdjustment.value = 0;
@@ -65,6 +75,7 @@ namespace GravityTurn
             // We don't want to do any pitch correction during the initial lift
             if (vessel.ProgradePitch(true) < -45)
                 turner.PitchAdjustment.force(0);
+
             turner.PrevTime = vessel.orbit.timeToAp;
             turner.lastTimeMeasured = Time.time;
             if (turner.Throttle.value < turner.Sensitivity)
@@ -95,6 +106,20 @@ namespace GravityTurn
             return angle;
         }
 
+        public static double CircularOrbitSpeed(CelestialBody body, double radius)
+        {
+            return Math.Sqrt(body.gravParameter / radius);
+        }
 
+        //Computes the deltaV of the burn needed to circularize an orbit.
+        public static Vector3d DeltaVToCircularize(Orbit o)
+        {
+            double UT = Planetarium.GetUniversalTime();
+            UT += o.timeToAp;
+
+            Vector3d desiredVelocity = CircularOrbitSpeed(o.referenceBody, o.Radius(UT)) * o.Horizontal(UT);
+            Vector3d actualVelocity = o.SwappedOrbitalVelocityAtUT(UT);
+            return desiredVelocity - actualVelocity;
+        }
     }
 }

@@ -14,34 +14,52 @@ namespace GravityTurn
     [KSPAddon(KSPAddon.Startup.Flight, false)]
     public class GravityTurner : ReloadableMonoBehaviour
     {
+        public enum AscentProgram
+        {
+            Landed,
+            InTurn,
+            InInitialPitch,
+            InInsertion,
+            InCoasting,
+            InCircularisation
+        }
+
+        public AscentProgram program = AscentProgram.Landed;
+
         public static Vessel getVessel { get { return FlightGlobals.ActiveVessel; } }
 
         #region GUI Variables
 
         [Persistent]
-        public EditableValue StartSpeed = new EditableValue(100);
+        public EditableValue StartSpeed = new EditableValue(100, locked: false);
         [Persistent]
-        public EditableValue HoldAPTime = new EditableValue(50);
+        public EditableValue HoldAPTime = new EditableValue(50, locked: false);
         [Persistent]
-        public EditableValue APTimeStart = new EditableValue(50);
+        public EditableValue APTimeStart = new EditableValue(50, locked: true);
         [Persistent]
-        public EditableValue APTimeFinish = new EditableValue(50);
+        public EditableValue APTimeFinish = new EditableValue(50, locked: true);
         [Persistent]
-        public EditableValue TurnAngle = new EditableValue(10);
+        public EditableValue TurnAngle = new EditableValue(10, locked: false);
         [Persistent]
-        public EditableValue Sensitivity = new EditableValue(0.3);
+        public EditableValue Sensitivity = new EditableValue(0.3, locked: true);
         [Persistent]
-        public EditableValue Roll = new EditableValue(0);
+        public EditableValue Roll = new EditableValue(0, locked: true);
         [Persistent]
-        public EditableValue DestinationHeight = new EditableValue(80);
+        public EditableValue DestinationHeight = new EditableValue(80, locked: true);
         [Persistent]
-        public EditableValue PressureCutoff = new EditableValue(1200);
+        public EditableValue PressureCutoff = new EditableValue(1200, locked: false);
         [Persistent]
-        public EditableValue Inclination = new EditableValue(0);
+        public EditableValue Inclination = new EditableValue(0, locked: true);
         [Persistent]
         public bool EnableStageManager = true;
         [Persistent]
-        public EditableValue FairingPressure = new EditableValue(10000, "{0:0}");
+        public EditableValue FairingPressure = new EditableValue(10, "{0:0}");
+        [Persistent]
+        public EditableValue autostagePostDelay = new EditableValue(0.3d, "{0:0.0}");
+        [Persistent]
+        public EditableValue autostagePreDelay = new EditableValue(0.7d, "{0:0.0}");
+        [Persistent]
+        public EditableValue autostageLimit = new EditableValue(0, "{0:0}");
         [Persistent]
         public bool EnableStats = false;
 
@@ -71,6 +89,7 @@ namespace GravityTurn
         public Window.FlightMapWindow flightMapWindow;
         public Window.StatsWindow statsWindow;
         public string Message = "";
+        static public string DebugMessage = "";
 
         #endregion
 
@@ -85,7 +104,6 @@ namespace GravityTurn
         double FlyTimeInterval = 0;
         double VectorLoss = 0;
         double TotalBurn = 0;
-        bool InPitchProgram = false;
         bool PitchSet = false;
         MovingAverage DragRatio = new MovingAverage();
 
@@ -98,6 +116,10 @@ namespace GravityTurn
         StageStats stagestats = null;
         MechjebWrapper mucore = new MechjebWrapper();
         LaunchDB launchdb = null;
+        public bool IsLaunchDBEmpty()
+        {
+            return launchdb.IsEmpty();
+        }
 
         #endregion
 
@@ -107,24 +129,28 @@ namespace GravityTurn
             params object[] args
             )
         {
-            
+
             string method = "";
 #if DEBUG
             StackFrame stackFrame = new StackFrame(1, true);
-            method = string.Format(" [{0}]|{1}",stackFrame.GetMethod().ToString(),stackFrame.GetFileLineNumber());
+            method = string.Format(" [{0}]|{1}", stackFrame.GetMethod().ToString(), stackFrame.GetFileLineNumber());
 #endif
             string incomingMessage;
             if (args == null)
                 incomingMessage = format;
             else
-                incomingMessage = string.Format(format,args);
-            UnityEngine.Debug.Log(string.Format("GravityTurn{0} : {1}",method,incomingMessage));
+                incomingMessage = string.Format(format, args);
+            UnityEngine.Debug.Log(string.Format("GravityTurn{0} : {1}", method, incomingMessage));
         }
 
 
+        string DefaultConfigFilename(Vessel vessel)
+        {
+            return LaunchDB.GetBaseFilePath(this.GetType(), string.Format("gt_vessel_default_{0}.cfg", vessel.mainBody.name));
+        }
         string ConfigFilename(Vessel vessel)
         {
-            return LaunchDB.GetBaseFilePath(this.GetType(), string.Format("gt_vessel_{0}_{1}.cfg",vessel.id.ToString(),vessel.mainBody.name));
+            return LaunchDB.GetBaseFilePath(this.GetType(), string.Format("gt_vessel_{0}_{1}.cfg", vessel.id.ToString(), vessel.mainBody.name));
         }
 
         private void OnGUI()
@@ -226,7 +252,7 @@ namespace GravityTurn
             double deltav = 0;
             for (int i = stagestats.atmoStats.Length - 1; i >= 0; i--)
             {
-                double stagetwr = (stagestats.atmoStats[i].StartTWR(vessel.mainBody.GeeASL) + stagestats.atmoStats[i].MaxTWR(vessel.mainBody.GeeASL))/2;
+                double stagetwr = (stagestats.atmoStats[i].StartTWR(vessel.mainBody.GeeASL) + stagestats.atmoStats[i].MaxTWR(vessel.mainBody.GeeASL)) / 2;
                 if (stagetwr > 0)
                 {
                     TWR += stagetwr * stagestats.atmoStats[i].deltaV;
@@ -238,9 +264,9 @@ namespace GravityTurn
             return TWR / deltav;
         }
 
-        public void CalculateSettings(Vessel vessel,bool UseBest=false)
+        public void CalculateSettings(Vessel vessel, bool UseBest = false)
         {
-            stagestats.RequestUpdate(this);
+            stagestats.ForceSimunlation();
             double TWR = 0;
             for (int i = stagestats.atmoStats.Length - 1; i >= 0; i--)
             {
@@ -248,7 +274,7 @@ namespace GravityTurn
                 if (stagetwr > 0)
                 {
                     if (vessel.StageHasSolidEngine(i))
-                        TWR = (stagetwr + stagestats.atmoStats[i].MaxTWR(vessel.mainBody.GeeASL))/2.3;
+                        TWR = (stagetwr + stagestats.atmoStats[i].MaxTWR(vessel.mainBody.GeeASL)) / 2.3;
                     else
                         TWR = stagetwr;
                     break;
@@ -256,34 +282,52 @@ namespace GravityTurn
             }
             if (TWR > 1.2)
             {
+                Log("First guess for TWR > 1.2 {0:0.00}", TWR);
                 TWR -= 1.2;
-                TurnAngle = Mathf.Clamp((float)(10 + TWR * 9), 10, 80);
-                StartSpeed = Mathf.Clamp((float)(100 - TWR * 45), 10, 100);
+                if (!TurnAngle.locked)
+                    TurnAngle = Mathf.Clamp((float)(10 + TWR * 5), 10, 80);
+                if (!StartSpeed.locked)
+                    StartSpeed = Mathf.Clamp((float)(100 - TWR * 30), 10, 100);
             }
 
             double guessTurn, guessSpeed;
-            if (UseBest && launchdb.BestSettings(out guessTurn,out guessSpeed))
+            if (UseBest && launchdb.BestSettings(out guessTurn, out guessSpeed))
             {
-                StartSpeed = guessSpeed;
-                TurnAngle = guessTurn;
+                Log("UseBest && launchdb.BestSettings");
+                if (!StartSpeed.locked)
+                    StartSpeed = guessSpeed;
+                if (!TurnAngle.locked)
+                    TurnAngle = guessTurn;
             }
             else if (launchdb.GuessSettings(out guessTurn, out guessSpeed))
             {
-                StartSpeed = guessSpeed;
-                TurnAngle = guessTurn;
+                Log("GuessSettings");
+                if (!StartSpeed.locked)
+                    StartSpeed = guessSpeed;
+                if (!TurnAngle.locked)
+                    TurnAngle = guessTurn;
             }
-            
-            APTimeFinish = 50;
-            APTimeStart = 50;
-            Sensitivity = 0.5;
-            if (vessel.mainBody.atmosphereDepth > 0)
-                DestinationHeight = vessel.mainBody.atmosphereDepth + 10000;
-            else
-                DestinationHeight = vessel.mainBody.timeWarpAltitudeLimits[1] + 10000;
-            DestinationHeight /= 1000;
-            Roll = 0;
-            Inclination = 0;
-            PressureCutoff = 1200;
+
+            if (!APTimeStart.locked)
+                APTimeStart = 50;
+            if (!APTimeFinish.locked)
+                APTimeFinish = 50;
+            if (!Sensitivity.locked)
+                Sensitivity = 0.3;
+            if (!DestinationHeight.locked)
+            {
+                if (vessel.mainBody.atmosphereDepth > 0)
+                    DestinationHeight = vessel.mainBody.atmosphereDepth + 10000;
+                else
+                    DestinationHeight = vessel.mainBody.timeWarpAltitudeLimits[1] + 10000;
+                DestinationHeight /= 1000;
+            }
+            if (!Roll.locked)
+                Roll = 0;
+            if (!Inclination.locked)
+                Inclination = 0;
+            if (!PressureCutoff.locked)
+                PressureCutoff = 1200;
             SaveParameters();
         }
 
@@ -295,11 +339,14 @@ namespace GravityTurn
 
         public void Launch()
         {
+            StageController.topFairingDeployed = false;
             if (StageManager.CurrentStage == StageManager.StageCount)
                 StageManager.ActivateNextStage();
             InitializeNumbers(getVessel);
             getVessel.OnFlyByWire += new FlightInputCallback(fly);
             Launching = true;
+            PitchSet = false;
+            program = AscentProgram.Landed;
             SaveParameters();
             LaunchName = new string(getVessel.vesselName.ToCharArray());
             LaunchBody = getVessel.mainBody;
@@ -333,7 +380,7 @@ namespace GravityTurn
                 if (flightMapWindow.flightMap != null && Launching)
                     flightMapWindow.flightMap.UpdateMap(getVessel);
             }
-            else if (EnableStats && !getVessel.Landed)
+            else if (EnableStats && !getVessel.Landed && !getVessel.IsInStableOrbit())
             {
                 CalculateLosses(getVessel);
                 stagestats.editorBody = getVessel.mainBody;
@@ -383,11 +430,17 @@ namespace GravityTurn
                     flightMapWindow.flightMap.Save(GetFlightMapFilename());
             }
             Launching = false;
-            launchdb.Save();
             getVessel.OnFlyByWire -= new FlightInputCallback(fly);
             FlightInputHandler.state.mainThrottle = 0;
             attitude.enabled = false;
             getVessel.ActionGroups.SetGroup(KSPActionGroup.SAS, false);
+        }
+
+        // this records an aborted launch as not sucessful
+        public void RecordAbortedLaunch()
+        {
+            launchdb.RecordLaunch();
+            launchdb.Save();
         }
 
         private float LaunchHeading(Vessel vessel)
@@ -412,19 +465,45 @@ namespace GravityTurn
             return Quaternion.AngleAxis(Roll, Vector3.forward);
         }
 
+        static double delayUT = double.NaN;
+
         private void fly(FlightCtrlState s)
         {
-            Vessel vessel = getVessel;
             if (!Launching)
+            {
                 Kill();
+                return;
+            }
+            Vessel vessel = getVessel;
+            if (vessel.orbit.ApA > DestinationHeight * 1000 && vessel.altitude < vessel.mainBody.atmosphereDepth)
+            {
+                if (program != AscentProgram.InCoasting)
+                {
+                    // save launch, ignoring losses due to coasting losses, but so we get results earlier
+                    launchdb.RecordLaunch();
+                    launchdb.Save();
+                    program = AscentProgram.InCoasting;
+                    DebugMessage += "In Coasting program\n";
+                    // time warp to speed up things
+                    TimeWarp.SetRate(2, true);
+                }
+
+            }
             else if (vessel.orbit.ApA > DestinationHeight * 1000 && vessel.altitude > vessel.mainBody.atmosphereDepth)
             {
+                program = AscentProgram.InCircularisation;
                 if (TimeWarp.CurrentRateIndex > 0)
                     TimeWarp.SetRate(0, true);
+                GravityTurner.Log("Saving launchDB");
                 launchdb.RecordLaunch();
+                launchdb.Save();
                 Kill();
+                DebugMessage += "In Circularisation program\n";
                 if (mucore.Initialized)
+                {
+                    program = AscentProgram.InCircularisation;
                     mucore.CircularizeAtAP();
+                }
             }
             else
             {
@@ -434,29 +513,65 @@ namespace GravityTurn
                     s.mainThrottle = Calculations.APThrottle(vessel.orbit.timeToAp, this);
                 else
                     s.mainThrottle = 0;
-                if (InPitchProgram && PitchSet)
+                if (program == AscentProgram.InInitialPitch && PitchSet)
                 {
                     if (vessel.ProgradePitch() + 90 >= TurnAngle)
-                        InPitchProgram = false;
+                    {
+                        program = AscentProgram.InTurn;
+                        DebugMessage += "Turning now\n";
+                    }
                 }
                 if (vessel.speed < StartSpeed)
                 {
-                    InPitchProgram = true;
+                    DebugMessage += "In Launch program\n";
+                    program = AscentProgram.InInitialPitch;
                     attitude.attitudeTo(Quaternion.Euler(-90, LaunchHeading(vessel), 0) * RollRotation(), AttitudeReference.SURFACE_NORTH, this);
                 }
-                else if (InPitchProgram)
+                else if (program == AscentProgram.InInitialPitch)
                 {
-                    attitude.attitudeTo(Quaternion.Euler(-90 + TurnAngle, LaunchHeading(vessel), 0) * RollRotation(), AttitudeReference.SURFACE_NORTH, this);
+                    delayUT = double.NaN;
+                    DebugMessage += "In Pitch program\n";
+                    double pitch = 90d - vesselState.vesselPitch;
+                    if (PitchSet)
+                    {
+                        float newPitch = Math.Min((float)(pitch + (TurnAngle - pitch) / 3 + 1), TurnAngle);
+                        attitude.attitudeTo(Quaternion.Euler(-90 + newPitch, LaunchHeading(vessel), 0) * RollRotation(), AttitudeReference.SURFACE_NORTH, this);
+                        DebugMessage += String.Format("TurnAngle: {0:0.00}\n", TurnAngle.value);
+                        DebugMessage += String.Format("Limiting pitch: {0:0.00}\n", newPitch);
+                    }
+                    else
+                    {
+                        attitude.attitudeTo(Quaternion.Euler(-90f + TurnAngle * 0.1f, LaunchHeading(vessel), 0) * RollRotation(), AttitudeReference.SURFACE_NORTH, this);
+                    }
                     PitchSet = true;
                 }
                 else if (vesselState.dynamicPressure > vesselState.maxQ * 0.5 || vesselState.dynamicPressure > PressureCutoff)
                 { // Still ascending, or not yet below the cutoff pressure
+                    DebugMessage += "In Turn program\n";
                     attitude.attitudeTo(Quaternion.Euler(vessel.ProgradePitch() - PitchAdjustment, LaunchHeading(vessel), 0) * RollRotation(), AttitudeReference.SURFACE_NORTH, this);
                 }
                 else
                 {
-                    //attitude.attitudeTo(Quaternion.Euler(ProgradePitch(false) - PitchAdjustment, LaunchHeading(), 0) * RollRotation(), AttitudeReference.SURFACE_NORTH, this);
-                    attitude.attitudeTo(Quaternion.Euler(0 - PitchAdjustment, 0, Roll), AttitudeReference.ORBIT, this);
+                    Quaternion q = Quaternion.Euler(0 - PitchAdjustment, 0, Roll);
+                    // smooth out change from surface to orbital prograde
+                    if (program != AscentProgram.InInsertion && program != AscentProgram.InCoasting)
+                    {
+                        // start timer
+                        if (Double.IsNaN(delayUT))
+                            delayUT = Planetarium.GetUniversalTime();
+                        double diffUT = Planetarium.GetUniversalTime() - delayUT;
+                        TimeWarp.SetRate(0, true);
+                        attitude.attitudeTo(q, AttitudeReference.ORBIT, this);
+                        DebugMessage += String.Format("tunring into Insertion program {0:0.0}\n", diffUT);
+                        q.x = (attitude.lastAct.x * 8.0f + q.x) / 9.0f;
+                        if (diffUT > 10 || (attitude.lastAct.x > 0.02 && diffUT > 2.0))
+                        {
+                            program = AscentProgram.InInsertion;
+                            delayUT = double.NaN;
+                            TimeWarp.SetRate(1, true);
+                        }
+                    }
+                    attitude.attitudeTo(q, AttitudeReference.ORBIT, this);
                 }
                 attitude.enabled = true;
                 attitude.Drive(s);
@@ -471,9 +586,9 @@ namespace GravityTurn
             info += string.Format("\nDrag coefficient {0:0.00}", vesselState.dragCoef);
             info += string.Format("\nDrag coefficient fwd {0:0.00}", vessel.DragCubeCoefForward());
             info += string.Format("\nMass {0:0.00}", vesselState.mass);
-            DragRatio.value = vesselState.areaDrag/vesselState.mass;
+            DragRatio.value = vesselState.areaDrag / vesselState.mass;
             info += string.Format("\narea/mass {0:0.00}", DragRatio.value);
-            info += string.Format("\nGuess TWR {0:0.00}", TWRWeightedAverage(2 * vessel.mainBody.GeeASL * DestinationHeight,vessel));
+            info += string.Format("\nGuess TWR {0:0.00}", TWRWeightedAverage(2 * vessel.mainBody.GeeASL * DestinationHeight, vessel));
             info += string.Format("\nPitch {0:0.00}", vessel.Pitch());
             info += string.Format("\nTimeToDesiredAP {0:0.00}", Calculations.TimeToReachAP(vesselState, vesselState.speedVertical, HoldAPTime));
             return info;
@@ -502,13 +617,13 @@ namespace GravityTurn
                 MaxHeat = vessel.CriticalHeatPart().CriticalHeat();
             launchdb.RecordLaunch();
             Message = string.Format(
-                "Air Drag:\t\t{0:0.00}m/s²\n"+
+                "Air Drag:\t\t{0:0.00}m/s²\n" +
                 "GravityDrag:\t{1:0.00}m/s²\n" +
                 "Thrust Vector Drag:\t{5:0.00}m/s²\n" +
                 "Air Drag Loss:\t{2:0.00}m/s\n" +
                 "Gravity Drag Loss:\t{3:0.00} -> {4:0.00}m/s (at AP)\n\n" +
                 "Total Vector Loss:\t{6:0.00}m/s\n" +
-                "Total Loss:\t{7:0.00}m/s\n"+
+                "Total Loss:\t{7:0.00}m/s\n" +
                 "Total Burn:\t\t{8:0.0}",
                 vesselState.drag,
                 GravityDrag,
@@ -516,29 +631,43 @@ namespace GravityTurn
                 GravityDragLoss, GravityDragLossAtAp,
                 VectorDrag,
                 VectorLoss,
-                DragLoss + GravityDragLossAtAp + VectorLoss,
+                TotalLoss,
                 TotalBurn
                 );
-
         }
 
         void LoadParameters()
         {
             ConfigNode savenode;
-            if (getVessel.mainBody.atmosphereDepth > 0)
-                DestinationHeight = getVessel.mainBody.atmosphereDepth + 10000;
-            else
-                DestinationHeight = getVessel.mainBody.timeWarpAltitudeLimits[1] + 10000;
-            DestinationHeight /= 1000;
             try
             {
+                Log("vessel: {0}", getVessel.mainBody != null);
                 savenode = ConfigNode.Load(ConfigFilename(getVessel));
+                Log("sn: {0}", savenode != null);
                 if (savenode != null)
                 {
                     if (ConfigNode.LoadObjectFromConfig(this, savenode))
+                    {
                         Log("Vessel loaded from " + ConfigFilename(getVessel));
+                    }
                     else
+                    {
                         Log("Vessel NOT loaded from " + ConfigFilename(getVessel));
+                    }
+                }
+                else
+                {
+                    // now try to get defaults
+                    savenode = ConfigNode.Load(DefaultConfigFilename(getVessel));
+                    Log("dn: {0}", savenode != null);
+                    if (savenode != null)
+                    {
+                        if (ConfigNode.LoadObjectFromConfig(this, savenode))
+                        {
+                            Log("Loaded defaults");
+                            CalculateSettings(getVessel);
+                        }
+                    }
                 }
             }
             catch (Exception ex)
@@ -551,7 +680,11 @@ namespace GravityTurn
         {
             Directory.CreateDirectory(Path.GetDirectoryName(ConfigFilename(getVessel)));
             ConfigNode savenode = ConfigNode.CreateConfigFromObject(this);
+            // save this vehicle
             savenode.Save(ConfigFilename(getVessel));
+            // save defaults for new vehicles
+            savenode.Save(DefaultConfigFilename(getVessel));
+
             Log("Vessel saved to " + ConfigFilename(getVessel));
         }
 
@@ -559,6 +692,7 @@ namespace GravityTurn
         {
             try
             {
+                SaveParameters();
                 Kill();
             }
             catch (Exception ex)
@@ -567,7 +701,6 @@ namespace GravityTurn
             }
             windowManager.OnDestroy();
             ApplicationLauncher.Instance.RemoveModApplication(button);
-            //SaveParameters();
         }
 
     }

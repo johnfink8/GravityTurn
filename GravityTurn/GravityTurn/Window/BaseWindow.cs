@@ -47,7 +47,7 @@ namespace GravityTurn.Window
     {
         int WindowID;
         protected GravityTurner turner;
-        public bool WindowVisible = false;
+        public bool WindowVisible = false; 
         public string WindowTitle = "GravityTurn";
         string filename;
 
@@ -67,6 +67,16 @@ namespace GravityTurn.Window
             WindowID = inWindowID;
             filename = LaunchDB.GetBaseFilePath(turner.GetType(), string.Format("gt_window_{0}.cfg", WindowID));
             Load();
+            if (windowPos.left + windowPos.width > Screen.width)
+            {
+                windowPos.left = Screen.width - windowPos.width;
+            }
+            if (windowPos.top + windowPos.height > Screen.height )
+            {
+                windowPos.top = Screen.height - windowPos.height;
+            }
+            if (windowPos.top < 0)
+                windowPos.top = 0;
         }
 
         public void Load()

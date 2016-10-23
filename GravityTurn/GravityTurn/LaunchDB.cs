@@ -36,17 +36,21 @@ namespace GravityTurn
 
         public int BetterThan(DBEntry other)
         {
-            if (IsHot() && !other.IsHot())
-                return 1;
-            if (other.IsHot() && !IsHot())
-                return -1;
-            if (other.IsHot() && other.MaxHeat > MaxHeat) // other overheated more than us
-                return -1;
             if (!other.LaunchSuccess && LaunchSuccess) // other failed and we didn't
                 return -1;
-            if (other.TotalLoss == TotalLoss)
-                return 0;
-            return (other.TotalLoss > TotalLoss) ? -1 : 1;
+            else if (other.LaunchSuccess == LaunchSuccess) // other failed and we didn't
+            {
+                if (IsHot() && !other.IsHot())
+                    return 1;
+                if (other.IsHot() && !IsHot())
+                    return -1;
+                if (other.IsHot() && other.MaxHeat > MaxHeat) // other overheated more than us
+                    return -1;
+                if (other.TotalLoss == TotalLoss)
+                    return 0;
+                return (other.TotalLoss > TotalLoss) ? -1 : 1;
+            }
+            return 1;
         }
 
         public int CompareTo(DBEntry other)
@@ -95,6 +99,11 @@ namespace GravityTurn
             turner = inTurner;
         }
 
+        public bool IsEmpty()
+        {
+            return DB.Count == 0;
+        }
+
         ///<summary>
         ///Get the least aggressive result from launches that overheated.
         ///</summary>
@@ -120,7 +129,7 @@ namespace GravityTurn
             if (DB.Count < 2)
                 return null;
             double loss = 0;
-            foreach (DBEntry entry in DB.Slinq().OrderBy(o => (o.TurnAngle / o.StartSpeed)).ToList() )
+            foreach (DBEntry entry in DB.Slinq().OrderBy(o => (o.TurnAngle / o.StartSpeed)).ToList())
             {
                 if (entry.MaxHeat > 0.95) // Stop if we find one TOO aggressive
                     break;
@@ -137,13 +146,16 @@ namespace GravityTurn
         ///</summary>
         public bool BestSettings(out double TurnAngle, out double StartSpeed)
         {
+            GravityTurner.DebugMessage = String.Format("LaunchDB entries: {0}", DB.Count);
             DB.Sort();
             TurnAngle = 0;
             StartSpeed = 0;
+            GravityTurner.Log("DB[0]: mh={0:0.00}, ok={1}", DB[0].MaxHeat, DB[0].LaunchSuccess);
             if (DB.Count < 1 || DB[0].MaxHeat >= 1 || !DB[0].LaunchSuccess)
                 return false;
             TurnAngle = DB[0].TurnAngle;
             StartSpeed = DB[0].StartSpeed;
+            GravityTurner.Log("Best Guess: s={0:0.00}, a={1:0.00}", StartSpeed, TurnAngle);
             return true;
         }
 
@@ -154,10 +166,14 @@ namespace GravityTurn
         {
             // sort by most aggressive
             DB.Sort();
+
             TurnAngle = 0;
             StartSpeed = 0;
             if (DB.Count == 0)
+            {
+                GravityTurner.Log("No previous result");
                 return false;
+            }
             if (DB.Count == 1)
             {
                 GravityTurner.Log("Only one previous result");
@@ -187,6 +203,16 @@ namespace GravityTurn
             TurnAngle = DB[0].TurnAngle + DB[0].TurnAngle - DB[1].TurnAngle;
             StartSpeed = DB[0].StartSpeed + DB[0].StartSpeed - DB[1].StartSpeed;
 
+            // check if this launch was already tried and failed
+            DBEntry check = FindEntry(StartSpeed, TurnAngle, turner.DestinationHeight);
+            if (check != null && !check.LaunchSuccess)
+            {
+                TurnAngle = (DB[0].TurnAngle + check.TurnAngle) / 2;
+                StartSpeed = (DB[0].StartSpeed + check.StartSpeed) / 2;
+                GravityTurner.Log("Found failed run, set between {0} and {1}",
+                    DB[0].ToString(), check.ToString()
+                    );
+            }
 
             // Check for overheated launches so we don't make that mistake again
             DBEntry hotrun = LeastCritical();
@@ -222,29 +248,37 @@ namespace GravityTurn
                 if (entry.TurnAngle == turner.TurnAngle && entry.StartSpeed == turner.StartSpeed && entry.DestinationHeight == turner.DestinationHeight)
                     return entry;
             }
+            GravityTurner.Log("Recording new launch record #{0}", DB.Count);
+
             DBEntry newentry = new DBEntry();
             DB.Add(newentry);
             return newentry;
         }
-
+        DBEntry FindEntry(double startSpeed, double turnAngle, double destinationHeight)
+        {
+            foreach (DBEntry entry in DB)
+            {
+                if (entry.TurnAngle == turnAngle && entry.StartSpeed == startSpeed && entry.DestinationHeight == destinationHeight)
+                    return entry;
+            }
+            return null;
+        }
         ///<summary>
         ///Update or create a new entry in the DB for the current launch.
         ///</summary>
         public void RecordLaunch()
         {
-            foreach (DBEntry entry in DB)
-            {
-                if (entry.Equals(turner))
-                    return;
-            }
-
             DBEntry newentry = GetEntry();
             newentry.TurnAngle = turner.TurnAngle;
             newentry.StartSpeed = turner.StartSpeed;
-            newentry.TotalLoss = turner.TotalLoss;
-            newentry.MaxHeat = turner.MaxHeat;
+            // avoid garbage loss values because of "revert flight"
+            if (newentry.TotalLoss < turner.TotalLoss)
+                newentry.TotalLoss = turner.TotalLoss;
+            if (newentry.MaxHeat < turner.MaxHeat)
+                newentry.MaxHeat = turner.MaxHeat;
             newentry.DestinationHeight = turner.DestinationHeight;
-            newentry.LaunchSuccess = GravityTurner.getVessel.orbit.ApA >= newentry.DestinationHeight * 1000;
+            if (!newentry.LaunchSuccess)
+                newentry.LaunchSuccess = GravityTurner.getVessel.orbit.ApA >= newentry.DestinationHeight * 1000;
         }
 
         public string GetFilename()
@@ -265,6 +299,7 @@ namespace GravityTurn
                     else
                         GravityTurner.Log("Vessel DB NOT loaded from {0}", GetFilename());
                 }
+                DB.Sort();
             }
             catch (Exception ex)
             {
@@ -274,20 +309,31 @@ namespace GravityTurn
 
         public void Save()
         {
+            DB.Sort();
             Directory.CreateDirectory(Path.GetDirectoryName(GetFilename()));
             root = ConfigNode.CreateConfigFromObject(this);
             root.Save(GetFilename());
             GravityTurner.Log("Vessel DB saved to {0}", GetFilename());
         }
 
-            public static string GetBaseFilePath(Type t, string sub)
+        public static string GetBaseFilePath(Type t, string sub)
+        {
+            try
             {
+
 #if DEBUG
                 return System.IO.Directory.GetCurrentDirectory() + @"\GameData\GravityTurn\Plugins\PluginData\GravityTurn\" + sub;
 #else
                 return IOUtils.GetFilePathFor(t, sub);
 #endif
+
             }
+            catch (Exception ex)
+            {
+                GravityTurner.Log("Exception: {0}", ex.ToString());
+                return System.IO.Directory.GetCurrentDirectory() + @"\GameData\GravityTurn\Plugins\PluginData\GravityTurn\" + sub;
+            }
+        }
 
     }
 

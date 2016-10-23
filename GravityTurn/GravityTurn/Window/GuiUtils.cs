@@ -258,6 +258,168 @@ namespace GravityTurn.Window
             }
         }
 
+
+        public static Texture2D ReadTexture(Texture2D texture)
+        {
+            GravityTurner.Log("ReadTexture");
+            // Create a temporary RenderTexture of the same size as the texture
+            RenderTexture tmp = RenderTexture.GetTemporary(
+                                texture.width,
+                                texture.height,
+                                0,
+                                RenderTextureFormat.Default,
+                                RenderTextureReadWrite.Linear);
+
+            GravityTurner.Log("  Blit");
+            // Blit the pixels on texture to the RenderTexture
+            Graphics.Blit(texture, tmp);
+            // Backup the currently set RenderTexture
+            RenderTexture previous = RenderTexture.active;
+            // Set the current RenderTexture to the temporary one we created
+            RenderTexture.active = tmp;
+            // Create a new readable Texture2D to copy the pixels to it
+            Texture2D myTexture2D = new Texture2D(texture.width, texture.width);
+            // Copy the pixels from the RenderTexture to the new Texture
+            GravityTurner.Log("  Readpixels");
+            myTexture2D.ReadPixels(new Rect(0, 0, tmp.width, tmp.height), 0, 0);
+            myTexture2D.Apply();
+            // Reset the active RenderTexture
+            RenderTexture.active = previous;
+            // Release the temporary RenderTexture
+            GravityTurner.Log("  Release");
+            RenderTexture.ReleaseTemporary(tmp);
+
+            // "myTexture2D" now has the same pixels from "texture" and it's readable.
+            return myTexture2D;
+        }
+
+        public static Texture2D CombineTextures(Texture2D aBaseTexture, Texture2D aToCopyTexture)
+        {
+            GravityTurner.Log("CombineTextures");
+            Texture2D baseTexture = ReadTexture(aBaseTexture);
+            if (baseTexture == null)
+            {
+                GravityTurner.Log("read texture failed");
+                return aBaseTexture;
+            }
+
+            int aWidth = aBaseTexture.width;
+            int aHeight = aBaseTexture.height;
+            Texture2D aReturnTexture = new Texture2D(aWidth, aHeight, TextureFormat.RGBA32, false);
+
+            GravityTurner.Log("create arrays {0}:{1} {2}", aWidth.ToString(), aHeight.ToString(), aToCopyTexture.width);
+            Color[] aBaseTexturePixels = baseTexture.GetPixels();
+            Color[] aCopyTexturePixels = aToCopyTexture.GetPixels();
+            Color[] aColorList = new Color[aBaseTexturePixels.Length];
+            int aPixelLength = aBaseTexturePixels.Length;
+
+            for (int p = 0; p < aPixelLength; p++)
+            {
+                aColorList[p] = Color.Lerp(aBaseTexturePixels[p], aCopyTexturePixels[p], aCopyTexturePixels[p].a);
+            }
+
+            GravityTurner.Log("SetPixels");
+            aReturnTexture.SetPixels(aColorList);
+            aReturnTexture.Apply(false);
+
+            return aReturnTexture;
+        }
+
+        static GUIStyle _lockToggleOn;
+        public static GUIStyle lockToggleOn
+        {
+            get
+            {
+                if (_lockToggleOn == null)
+                {
+                    _lockToggleOn = new GUIStyle(GUI.skin.button);
+                    _lockToggleOn.active.textColor = Color.green;
+                    _lockToggleOn.normal.textColor = Color.green;
+                    _lockToggleOn.hover.textColor = Color.green;
+                    _lockToggleOn.onActive.textColor = Color.red;
+                    _lockToggleOn.onNormal.textColor = Color.red;
+                    _lockToggleOn.onHover.textColor = Color.red;
+
+                    _lockToggleOn.onNormal.background = GUI.skin.button.onActive.background;
+                    _lockToggleOn.onActive.background = GUI.skin.textField.hover.background;
+                    _lockToggleOn.onHover.background = GUI.skin.textField.normal.background;
+                    _lockToggleOn.normal.background = GUI.skin.button.active.background;
+                    _lockToggleOn.active.background = GUI.skin.button.normal.background;
+                    _lockToggleOn.hover.background = GUI.skin.button.onHover.background;
+                    _lockToggleOn.imagePosition = ImagePosition.ImageOnly;
+                }
+                return _lockToggleOn;
+            }
+        }
+
+        static GUIStyle _lockToggleOff;
+        public static GUIStyle lockToggleOff
+        {
+            get
+            {
+                if (_lockToggleOff == null)
+                {
+                    _lockToggleOff = new GUIStyle(GUI.skin.button);
+                    _lockToggleOff.active.textColor = Color.green;
+                    _lockToggleOff.normal.textColor = Color.green;
+                    _lockToggleOff.hover.textColor = Color.green;
+                    _lockToggleOff.onActive.textColor = Color.red;
+                    _lockToggleOff.onNormal.textColor = Color.red;
+                    _lockToggleOff.onHover.textColor = Color.red;
+
+                    _lockToggleOff.onNormal.background = GUI.skin.button.onNormal.background;
+                    _lockToggleOff.onActive.background = GUI.skin.button.onActive.background;
+                    _lockToggleOff.onHover.background = GUI.skin.button.onHover.background;
+                    _lockToggleOff.normal.background = GUI.skin.button.normal.background;
+                    _lockToggleOff.active.background = GUI.skin.button.active.background;
+                    _lockToggleOff.hover.background = GUI.skin.button.hover.background;
+                    _lockToggleOff.imagePosition = ImagePosition.ImageOnly;
+                }
+                return _lockToggleOff;
+            }
+        }
+
+        static Texture2D _lockImageOn;
+        public static Texture2D lockImageOn
+        {
+            get
+            {
+                if (_lockImageOn == null)
+                {
+                    _lockImageOn = GameDatabase.Instance.GetTexture("GravityTurn/Textures/lock_on", false);
+                    if (_lockImageOn == null)
+                        GravityTurner.Log("could not load lock_on icon!");
+                }
+                return _lockImageOn;
+            }
+        }
+        static Texture2D _lockImageOff;
+        public static Texture2D lockImageOff
+        {
+            get
+            {
+                if (_lockImageOff == null)
+                {
+                    _lockImageOff = GameDatabase.Instance.GetTexture("GravityTurn/Textures/lock_off", false);
+                    if (_lockImageOff == null)
+                        GravityTurner.Log("could not load lock_off icon!");
+                }
+                return _lockImageOff;
+            }
+        }
+
+
+        public static bool LockToggle(bool value)
+        {
+
+            return GUILayout.Toggle(
+                value, 
+                value ? lockImageOn : lockImageOff, 
+                value ? lockToggleOn : lockToggleOff, 
+                GUILayout.ExpandWidth(false), GUILayout.MinWidth(18), GUILayout.MinHeight(21));
+        }
+
+
         public enum SkinType { Default, Compact }
         public static GUISkin skin;
         public static float scale = 1;

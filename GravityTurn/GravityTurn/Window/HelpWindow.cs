@@ -17,7 +17,7 @@ namespace GravityTurn.Window
 
         public void Button(string helpMessage)
         {
-            if (GUILayout.Button("?", GUILayout.ExpandWidth(false), GUILayout.ExpandHeight(false), GUILayout.Height(16)))
+            if (GUILayout.Button("?", GUILayout.ExpandWidth(false), GUILayout.ExpandHeight(false), GUILayout.MaxWidth(18), GUILayout.MinHeight(18)))
             {
                 if (helpWindowText == helpMessage && WindowVisible)
                     WindowVisible = false;

@@ -12,7 +12,6 @@ namespace GravityTurn
         {
             return v.Reorder(132);
         }
-
         //
         // These "Swapped" functions translate preexisting Orbit class functions into world
         // space. For some reason, Orbit class functions seem to use a coordinate system

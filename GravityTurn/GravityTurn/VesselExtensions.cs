@@ -23,6 +23,16 @@ namespace GravityTurn
             }
             return false;
         }
+        public static bool IsInStableOrbit(this Vessel v)
+        {
+            if (v.mainBody.atmosphere && v.orbit.ApA > v.mainBody.atmosphereDepth && v.orbit.PeA > v.mainBody.atmosphereDepth)
+                return true;
+
+            if (!v.mainBody.atmosphere && v.orbit.ApA > v.mainBody.minOrbitalDistance && v.orbit.PeA > v.mainBody.minOrbitalDistance)
+                return true;
+
+            return false;
+        }
 
         public static Vector3d up(this Vessel vessel)
         {

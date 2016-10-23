@@ -11,20 +11,25 @@ namespace GravityTurn
     {
         [Persistent]
         public double value = 0;
+        [Persistent]
+        public bool locked = false;
+
         public bool valid = true;
         public String format = "{0:0.00}";
         public string str = "0";
 
-        public EditableValue(double initialValue,string printFormat="{0:0.00}")
+        public EditableValue(double initialValue,string printFormat="{0:0.00}", bool locked = false)
         {
+            this.locked = locked;
             value = initialValue;
             format = printFormat;
             valid = true;
             str = value.ToString();
         }
 
-        public EditableValue(string initialStr, string printFormat = "{0:0.00}")
+        public EditableValue(string initialStr, string printFormat = "{0:0.00}", bool locked = false)
         {
+            this.locked = locked;
             format = printFormat;
             try
             {
