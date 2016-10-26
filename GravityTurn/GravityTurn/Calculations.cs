@@ -18,7 +18,7 @@ namespace GravityTurn
         public static float APThrottle(double timeToAP, GravityTurner turner)
         {
             Vessel vessel = GravityTurner.getVessel;
-            GravityTurner.DebugMessage = String.Format("");
+            GravityTurner.DebugMessage += "-\n";
             if (vessel.speed < turner.StartSpeed)
                 turner.Throttle.value = 1.0f;
             else
@@ -62,8 +62,6 @@ namespace GravityTurn
 
                 GravityTurner.DebugMessage += String.Format("max Angle of Attack: {0:0.00}\n", maxAoA);
                 GravityTurner.DebugMessage += String.Format("cur Angle of Attack: {0:0.00}\n", turner.vesselState.AoA.value);
-                GravityTurner.DebugMessage += String.Format("cur Prograde Pitch: {0:0.00}\n", vessel.ProgradePitch() + 90f);
-                GravityTurner.DebugMessage += String.Format("cur Pitch to Surface: {0:0.00}\n", 90d-turner.vesselState.vesselPitch);
                 GravityTurner.DebugMessage += String.Format("-\n");
 
             }

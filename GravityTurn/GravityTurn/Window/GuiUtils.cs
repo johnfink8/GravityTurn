@@ -258,7 +258,23 @@ namespace GravityTurn.Window
             }
         }
 
-
+        static GUIStyle _tooltipFore;
+        public static GUIStyle tooltipFore
+        {
+            get
+            {
+                if (_tooltipFore == null)
+                {
+                    _tooltipFore = new GUIStyle();
+                    _tooltipFore.normal.textColor = Color.white;
+                    _tooltipFore.alignment = TextAnchor.UpperCenter;
+                    _tooltipFore.normal.background = yellowOnHover.hover.background;
+                    _tooltipFore.onNormal.background = yellowOnHover.hover.background;
+                    _tooltipFore.wordWrap = true;
+                }
+                return _tooltipFore;
+            }
+        }
         public static Texture2D ReadTexture(Texture2D texture)
         {
             GravityTurner.Log("ReadTexture");
@@ -408,7 +424,6 @@ namespace GravityTurn.Window
             }
         }
 
-
         public static bool LockToggle(bool value)
         {
 
@@ -417,6 +432,20 @@ namespace GravityTurn.Window
                 value ? lockImageOn : lockImageOff, 
                 value ? lockToggleOn : lockToggleOff, 
                 GUILayout.ExpandWidth(false), GUILayout.MinWidth(18), GUILayout.MinHeight(21));
+        }
+        static Texture2D _saveIcon;
+        public static Texture2D saveIcon
+        {
+            get
+            {
+                if (_saveIcon == null)
+                {
+                    _saveIcon = GameDatabase.Instance.GetTexture("GravityTurn/Textures/save", false);
+                    if (_saveIcon == null)
+                        GravityTurner.Log("could not load save icon!");
+                }
+                return _saveIcon;
+            }
         }
 
 

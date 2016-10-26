@@ -86,10 +86,7 @@ namespace GravityTurn.Window
                 ConfigNode root = ConfigNode.Load(filename);
                 if (root != null)
                 {
-                    if (ConfigNode.LoadObjectFromConfig(this, root))
-                        GravityTurner.Log("Window loaded from {0}", filename);
-                    else
-                        GravityTurner.Log("Window NOT loaded from {0}", filename);
+                    ConfigNode.LoadObjectFromConfig(this, root);
                 }
             }
             catch (Exception ex)
@@ -126,7 +123,6 @@ namespace GravityTurn.Window
             Directory.CreateDirectory(Path.GetDirectoryName(filename));
             ConfigNode root = ConfigNode.CreateConfigFromObject(this);
             root.Save(filename);
-            GravityTurner.Log("Window saved to {0}", filename);
         }
     }
 }

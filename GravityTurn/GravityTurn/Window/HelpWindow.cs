@@ -7,7 +7,7 @@ namespace GravityTurn.Window
 {
     public class HelpWindow : BaseWindow
     {
-        string helpWindowText = "";
+        public string helpWindowText = "";
 
         public HelpWindow(GravityTurner inTurner, int inWindowID)
             : base(inTurner,inWindowID)

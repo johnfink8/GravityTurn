@@ -25,13 +25,17 @@ namespace GravityTurn
         }
         public static bool IsInStableOrbit(this Vessel v)
         {
-            if (v.mainBody.atmosphere && v.orbit.ApA > v.mainBody.atmosphereDepth && v.orbit.PeA > v.mainBody.atmosphereDepth)
-                return true;
-
-            if (!v.mainBody.atmosphere && v.orbit.ApA > v.mainBody.minOrbitalDistance && v.orbit.PeA > v.mainBody.minOrbitalDistance)
+            if (v.orbit.ApA > v.StableOrbitHeight() && v.orbit.PeA > v.StableOrbitHeight())
                 return true;
 
             return false;
+        }
+        public static double StableOrbitHeight(this Vessel v)
+        {
+            if (v.mainBody.atmosphere)
+                return v.mainBody.atmosphereDepth;
+            else
+                return v.mainBody.Radius + v.mainBody.timeWarpAltitudeLimits[1];
         }
 
         public static Vector3d up(this Vessel vessel)

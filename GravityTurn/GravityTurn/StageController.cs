@@ -32,20 +32,27 @@ namespace GravityTurn
             if (!vessel.isActiveVessel)
                 return;
 
+            GravityTurner.DebugMessage = "StageController is active\n";
+
             //if autostage enabled, and if we are not waiting on the pad, and if there are stages left,
             //and if we are allowed to continue staging, and if we didn't just fire the previous stage
             if (!vessel.LiftedOff() || StageManager.CurrentStage <= 0 || StageManager.CurrentStage <= turner.autostageLimit
-               || vesselState.time - lastStageTime < turner.autostagePostDelay)
+               || Math.Abs(vesselState.time - lastStageTime) < turner.autostagePostDelay)
                 return;
+
+            GravityTurner.DebugMessage += "  Lifted off\n";
 
             //only decouple fairings if the dynamic pressure and altitude conditions are respected
             if (!topFairingDeployed)
             {
                 Part fairing = GetTopmostFairing(vessel);
+                if (fairing == null)
+                    GravityTurner.DebugMessage += "  no top fairing\n";
                 if (fairing != null && fairing.IsUnfiredDecoupler() && (vesselState.dynamicPressure < turner.FairingPressure && vesselState.dynamicPressure < vesselState.maxQ))
                 {
                     topFairingDeployed = true;
                     fairing.DeployFairing();
+                    GravityTurner.DebugMessage += "  Deploying top Fairing!!!\n";
                     return;
                 }
             }
@@ -55,34 +62,47 @@ namespace GravityTurn
             if (InverseStageDecouplesActiveOrIdleEngineOrTank(StageManager.CurrentStage - 1, vessel, burnedResources))
                 return;
 
+            GravityTurner.DebugMessage += "  active/idle Engine\n";
+
             //Don't fire a stage that will activate a parachute, unless that parachute gets decoupled:
             if (HasStayingChutes(StageManager.CurrentStage - 1, vessel))
                 return;
+
+            GravityTurner.DebugMessage += "  HasStayingChute\n";
 
             //only fire decouplers to drop deactivated engines or tanks
             bool firesDecoupler = InverseStageFiresDecoupler(StageManager.CurrentStage - 1, vessel);
             if (firesDecoupler && !InverseStageDecouplesDeactivatedEngineOrTank(StageManager.CurrentStage - 1, vessel))
                 return;
 
+            GravityTurner.DebugMessage += "  deactivated Engine/Tank\n";
+
             //When we find that we're allowed to stage, start a countdown (with a
             //length given by autostagePreDelay) and only stage once that countdown finishes,
             if (countingDown)
             {
-                if (vesselState.time - stageCountdownStart > turner.autostagePreDelay)
+                GravityTurner.DebugMessage += "  Counting down\n";
+                if (Math.Abs(vesselState.time - stageCountdownStart) > turner.autostagePreDelay)
                 {
+                    GravityTurner.DebugMessage += "    Countdown finished\n";
                     if (firesDecoupler)
                     {
                         //if we decouple things, delay the next stage a bit to avoid exploding the debris
                         lastStageTime = vesselState.time;
                     }
+                    GravityTurner.DebugMessage += "    ActivateNextStage\n";
                     StageManager.ActivateNextStage();
                     countingDown = false;
+                    GravityTurner.RestoreTimeWarp();
                 }
             }
             else
             {
-                countingDown = true;
+                GravityTurner.DebugMessage += "  Stage Countdown\n";
+                GravityTurner.StoreTimeWarp();
+                GravityTurner.StopSpeedup();
                 stageCountdownStart = vesselState.time;
+                countingDown = true;
             }
         }
 

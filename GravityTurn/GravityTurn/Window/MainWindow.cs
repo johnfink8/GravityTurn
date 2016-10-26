@@ -107,7 +107,7 @@ namespace GravityTurn.Window
         public override void WindowGUI(int windowID)
         {
             base.WindowGUI(windowID);
-            if (!WindowVisible)
+            if (!WindowVisible && turner.button.enabled)
             {
                 turner.button.SetFalse(false);
                 turner.SaveParameters();
@@ -125,7 +125,8 @@ namespace GravityTurn.Window
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Setup", GUILayout.ExpandWidth(false)))
                 stagesettings.WindowVisible = !stagesettings.WindowVisible;
-            turner.EnableStageManager = GUILayout.Toggle(turner.EnableStageManager, "Auto-StageManager");
+            turner.EnableStageManager = GUILayout.Toggle(turner.EnableStageManager, "Auto Stage");
+            turner.EnableSpeedup = GUILayout.Toggle(turner.EnableSpeedup, "Use Timewarp");
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
             turner.flightMapWindow.WindowVisible = GUILayout.Toggle(turner.flightMapWindow.WindowVisible, "Show Launch Map", GUILayout.ExpandWidth(false));
@@ -139,17 +140,19 @@ namespace GravityTurn.Window
             GUILayout.BeginHorizontal();
             GUILayout.Label(string.Format("Time to match: {0:0.0}", turner.HoldAPTime), GUILayout.ExpandWidth(false));
             GUILayout.EndHorizontal();
-            GUILayout.BeginHorizontal();
             if (GravityTurner.getVessel.Landed && !turner.Launching)
             {
+                GUILayout.BeginHorizontal();
                 string guess = turner.IsLaunchDBEmpty() ? "First Guess" : "Improve Guess";
                 if (GUILayout.Button(guess, GUILayout.ExpandWidth(false)))
                     turner.CalculateSettings(GravityTurner.getVessel);
                 if (GUILayout.Button("Previous Best Settings", GUILayout.ExpandWidth(false)))
                     turner.CalculateSettings(GravityTurner.getVessel, true);
                 helpWindow.Button("Improve Guess will try to extrapolate the best settings based on previous launches.  This may end in fiery death, but it won't happen the same way twice.  Be warned, sometimes launches get worse before they get better.  But they do get better.");
+                if (GUILayout.Button(GuiUtils.saveIcon, GUILayout.ExpandWidth(false), GUILayout.MinWidth(18), GUILayout.MinHeight(21)))
+                    turner.SaveDefaultParameters();
+                GUILayout.EndHorizontal();
             }
-            GUILayout.EndHorizontal();
             if (GravityTurner.getVessel.Landed && !turner.Launching && GUILayout.Button("Launch!", GUILayout.ExpandWidth(true), GUILayout.MinHeight(30)))
             {
                 turner.Launch();

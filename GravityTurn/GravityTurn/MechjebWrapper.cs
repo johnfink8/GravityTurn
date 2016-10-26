@@ -26,31 +26,23 @@ namespace GravityTurn
                         return true;
                     }
                 }
-            
+
             }
             return false;
         }
 
         System.Type FindMechJebModule(string module)
         {
-            for (int a = 0; a < AssemblyLoader.loadedAssemblies.Count; a++)
+            Type type = null;
+            AssemblyLoader.loadedAssemblies.TypeOperation(t =>
             {
-                var loader = AssemblyLoader.loadedAssemblies[a];
-                var types = loader.assembly.GetExportedTypes();
-                for (int t = 0; t < types.Length; t++)
+                if (t.FullName == module)
                 {
-                    if (types[t].FullName == module)
-                        return types[t];
+                    type = t;
                 }
+            });
 
-            }
-/*              
-            Type ct = AssemblyLoader.loadedAssemblies
-                .Select(a => a.assembly.GetExportedTypes())
-                .SelectMany(t => t)
-                .FirstOrDefault(t => t.FullName == module);
-                */
-            return null;
+            return type;
         }
 
         public bool init()
@@ -88,8 +80,8 @@ namespace GravityTurn
             UT += vessel.orbit.timeToAp;
             System.Type OrbitalManeuverCalculatorType = FindMechJebModule("MuMech.OrbitalManeuverCalculator");
 
-            MethodInfo CircularizeMethod = OrbitalManeuverCalculatorType.GetMethod("DeltaVToCircularize",BindingFlags.Public | BindingFlags.Static);
-            Vector3d deltav = (Vector3d)CircularizeMethod.Invoke(null, new object[]{vessel.orbit,UT});
+            MethodInfo CircularizeMethod = OrbitalManeuverCalculatorType.GetMethod("DeltaVToCircularize", BindingFlags.Public | BindingFlags.Static);
+            Vector3d deltav = (Vector3d)CircularizeMethod.Invoke(null, new object[] { vessel.orbit, UT });
             GravityTurner.Log(string.Format("Circularization burn {0:0.0} m/s", deltav.magnitude));
             vessel.PlaceManeuverNode(vessel.orbit, deltav, UT);
             ExecuteNode();

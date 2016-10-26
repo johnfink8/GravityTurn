@@ -164,75 +164,87 @@ namespace GravityTurn
         ///</summary>
         public bool GuessSettings(out double TurnAngle, out double StartSpeed)
         {
-            // sort by most aggressive
-            DB.Sort();
-
-            TurnAngle = 0;
-            StartSpeed = 0;
-            if (DB.Count == 0)
+            try
             {
-                GravityTurner.Log("No previous result");
+                GravityTurner.Log("Guessing settings");
+                // sort by most aggressive
+                DB.Sort();
+
+                TurnAngle = 0;
+                StartSpeed = 0;
+                if (DB.Count == 0)
+                {
+                    GravityTurner.Log("No previous result");
+                    return false;
+                }
+                if (DB.Count == 1)
+                {
+                    GravityTurner.Log("Only one previous result");
+                    if (DB[0].MaxHeat < 0.90)
+                    {
+                        float Adjust = Mathf.Clamp((float)DB[0].MaxHeat + (float)(1 - DB[0].MaxHeat) / 2, 0.8f, 0.95f);
+                        TurnAngle = DB[0].TurnAngle / Adjust;
+                        StartSpeed = DB[0].StartSpeed * Adjust;
+                    }
+                    else if (DB[0].MaxHeat > 0.95)
+                    {
+                        TurnAngle = DB[0].TurnAngle * 0.95;
+                        StartSpeed = DB[0].StartSpeed * 1.05;
+                    }
+                    else
+                    {
+                        TurnAngle = DB[0].TurnAngle;
+                        StartSpeed = DB[0].StartSpeed;
+                    }
+                    return true;
+                }
+
+                // more than one result, now we can do real work
+
+                // Simple linear progression 2nd best -> best -> next
+
+                TurnAngle = DB[0].TurnAngle + DB[0].TurnAngle - DB[1].TurnAngle;
+                StartSpeed = DB[0].StartSpeed + DB[0].StartSpeed - DB[1].StartSpeed;
+
+                // check if this launch was already tried and failed
+                DBEntry check = FindEntry(StartSpeed, TurnAngle, turner.DestinationHeight);
+                if (check != null && !check.LaunchSuccess)
+                {
+                    TurnAngle = (DB[0].TurnAngle + check.TurnAngle) / 2;
+                    StartSpeed = (DB[0].StartSpeed + check.StartSpeed) / 2;
+                    GravityTurner.Log("Found failed run, set between {0} and {1}",
+                        DB[0].ToString(), check.ToString()
+                        );
+                }
+
+                // Check for overheated launches so we don't make that mistake again
+                DBEntry hotrun = LeastCritical();
+                if (hotrun != null && TurnAngle / StartSpeed >= hotrun.TurnAngle / hotrun.StartSpeed * 0.99) // Close to a previous overheating run
+                {
+                    TurnAngle = (DB[0].TurnAngle + hotrun.TurnAngle) / 2;
+                    StartSpeed = (DB[0].StartSpeed + hotrun.StartSpeed) / 2;
+                    GravityTurner.Log("Found hot run, set between {0} and {1}",
+                        DB[0].ToString(), hotrun.ToString()
+                        );
+                }
+
+                // Need to check to see if we're past the point of max efficiency
+                DBEntry toomuch = EfficiencyTippingPoint();
+                // If we're within 1% of a launch that was inefficient (or beyond)...
+                if (toomuch != null && TurnAngle / StartSpeed >= toomuch.TurnAngle / toomuch.StartSpeed * 0.99)
+                {
+                    // Go halfway between the best and too much
+                    TurnAngle = (DB[0].TurnAngle + toomuch.TurnAngle) / 2;
+                    StartSpeed = (DB[0].StartSpeed + toomuch.StartSpeed) / 2;
+                }
+
+            }
+            catch (Exception ex)
+            {
+                GravityTurner.Log(ex.Message);
+                TurnAngle = 0;
+                StartSpeed = 0;
                 return false;
-            }
-            if (DB.Count == 1)
-            {
-                GravityTurner.Log("Only one previous result");
-                if (DB[0].MaxHeat < 0.90)
-                {
-                    float Adjust = Mathf.Clamp((float)DB[0].MaxHeat + (float)(1 - DB[0].MaxHeat) / 2, 0.8f, 0.95f);
-                    TurnAngle = DB[0].TurnAngle / Adjust;
-                    StartSpeed = DB[0].StartSpeed * Adjust;
-                }
-                else if (DB[0].MaxHeat > 0.95)
-                {
-                    TurnAngle = DB[0].TurnAngle * 0.95;
-                    StartSpeed = DB[0].StartSpeed * 1.05;
-                }
-                else
-                {
-                    TurnAngle = DB[0].TurnAngle;
-                    StartSpeed = DB[0].StartSpeed;
-                }
-                return true;
-            }
-
-            // more than one result, now we can do real work
-
-            // Simple linear progression 2nd best -> best -> next
-
-            TurnAngle = DB[0].TurnAngle + DB[0].TurnAngle - DB[1].TurnAngle;
-            StartSpeed = DB[0].StartSpeed + DB[0].StartSpeed - DB[1].StartSpeed;
-
-            // check if this launch was already tried and failed
-            DBEntry check = FindEntry(StartSpeed, TurnAngle, turner.DestinationHeight);
-            if (check != null && !check.LaunchSuccess)
-            {
-                TurnAngle = (DB[0].TurnAngle + check.TurnAngle) / 2;
-                StartSpeed = (DB[0].StartSpeed + check.StartSpeed) / 2;
-                GravityTurner.Log("Found failed run, set between {0} and {1}",
-                    DB[0].ToString(), check.ToString()
-                    );
-            }
-
-            // Check for overheated launches so we don't make that mistake again
-            DBEntry hotrun = LeastCritical();
-            if (hotrun != null && TurnAngle / StartSpeed >= hotrun.TurnAngle / hotrun.StartSpeed * 0.99) // Close to a previous overheating run
-            {
-                TurnAngle = (DB[0].TurnAngle + hotrun.TurnAngle) / 2;
-                StartSpeed = (DB[0].StartSpeed + hotrun.StartSpeed) / 2;
-                GravityTurner.Log("Found hot run, set between {0} and {1}",
-                    DB[0].ToString(), hotrun.ToString()
-                    );
-            }
-
-            // Need to check to see if we're past the point of max efficiency
-            DBEntry toomuch = EfficiencyTippingPoint();
-            // If we're within 1% of a launch that was inefficient (or beyond)...
-            if (toomuch != null && TurnAngle / StartSpeed >= toomuch.TurnAngle / toomuch.StartSpeed * 0.99)
-            {
-                // Go halfway between the best and too much
-                TurnAngle = (DB[0].TurnAngle + toomuch.TurnAngle) / 2;
-                StartSpeed = (DB[0].StartSpeed + toomuch.StartSpeed) / 2;
             }
 
             return true;
@@ -290,14 +302,10 @@ namespace GravityTurn
         {
             try
             {
-                GravityTurner.Log("Loading Vessel {0}", GetFilename());
                 root = ConfigNode.Load(GetFilename());
                 if (root != null)
                 {
-                    if (ConfigNode.LoadObjectFromConfig(this, root))
-                        GravityTurner.Log("Vessel DB loaded from {0}", GetFilename());
-                    else
-                        GravityTurner.Log("Vessel DB NOT loaded from {0}", GetFilename());
+                    ConfigNode.LoadObjectFromConfig(this, root);
                 }
                 DB.Sort();
             }
@@ -313,7 +321,6 @@ namespace GravityTurn
             Directory.CreateDirectory(Path.GetDirectoryName(GetFilename()));
             root = ConfigNode.CreateConfigFromObject(this);
             root.Save(GetFilename());
-            GravityTurner.Log("Vessel DB saved to {0}", GetFilename());
         }
 
         public static string GetBaseFilePath(Type t, string sub)
