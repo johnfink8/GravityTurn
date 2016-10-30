@@ -169,7 +169,13 @@ namespace GravityTurn
                 GravityTurner.Log("Guessing settings");
                 // sort by most aggressive
                 DB.Sort();
-
+                if (GameSettings.MODIFIER_KEY.GetKey())
+                {
+                    TurnAngle = 10;
+                    StartSpeed = 100;
+                    GravityTurner.Log("Reset results");
+                    return false;
+                }
                 TurnAngle = 0;
                 StartSpeed = 0;
                 if (DB.Count == 0)
@@ -255,11 +261,9 @@ namespace GravityTurn
         ///</summary>
         DBEntry GetEntry()
         {
-            foreach (DBEntry entry in DB)
-            {
-                if (entry.TurnAngle == turner.TurnAngle && entry.StartSpeed == turner.StartSpeed && entry.DestinationHeight == turner.DestinationHeight)
-                    return entry;
-            }
+            DBEntry foundEntry = FindEntry(turner.TurnAngle, turner.StartSpeed, turner.DestinationHeight);
+            if (foundEntry != null)
+                return foundEntry;
             GravityTurner.Log("Recording new launch record #{0}", DB.Count);
 
             DBEntry newentry = new DBEntry();
@@ -270,7 +274,7 @@ namespace GravityTurn
         {
             foreach (DBEntry entry in DB)
             {
-                if (entry.TurnAngle == turnAngle && entry.StartSpeed == startSpeed && entry.DestinationHeight == destinationHeight)
+                if (Math.Abs(entry.TurnAngle - turnAngle)<0.05 && Math.Abs(entry.StartSpeed - startSpeed) < 0.1 && Math.Abs(entry.DestinationHeight - destinationHeight) < 0.1)
                     return entry;
             }
             return null;
@@ -321,6 +325,11 @@ namespace GravityTurn
             Directory.CreateDirectory(Path.GetDirectoryName(GetFilename()));
             root = ConfigNode.CreateConfigFromObject(this);
             root.Save(GetFilename());
+        }
+        public void  Clear()
+        {
+            DB.Clear();
+            Save();
         }
 
         public static string GetBaseFilePath(Type t, string sub)

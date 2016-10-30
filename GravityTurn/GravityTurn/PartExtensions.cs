@@ -94,7 +94,7 @@ namespace GravityTurn
             return p.ActivatesEvenIfDisconnected
                 && p.IsEngine()
                 && p.IsDecoupledInStage(p.inverseStage)
-                && p.isControlSource == Vessel.ControlLevel.FULL;
+                && p.isControlSource == Vessel.ControlLevel.NONE;
         }
         public static bool IsEngine(this Part p)
         {
