@@ -41,17 +41,22 @@ namespace GravityTurn
                 return;
 
             GravityTurner.DebugMessage += "  Lifted off\n";
-
+             
             //only decouple fairings if the dynamic pressure and altitude conditions are respected
             if (!topFairingDeployed)
             {
                 Part fairing = GetTopmostFairing(vessel);
                 if (fairing == null)
                     GravityTurner.DebugMessage += "  no top fairing\n";
-                if (fairing != null && fairing.IsUnfiredDecoupler() && (vesselState.dynamicPressure < turner.FairingPressure && vesselState.dynamicPressure < vesselState.maxQ))
+                
+                if (fairing != null && fairing.IsUnfiredDecoupler() && (vesselState.dynamicPressure < turner.FairingPressure && Math.Abs(vesselState.dynamicPressure - vesselState.maxQ) > 0.1) && (vesselState.maxQ > vessel.mainBody.atmospherePressureSeaLevel/2))
                 {
                     topFairingDeployed = true;
                     fairing.DeployFairing();
+                    GravityTurner.Log("Top Fairing deployed.");
+                    GravityTurner.Log("  fairing pressure: {0:0.0}", turner.FairingPressure);
+                    GravityTurner.Log("  dynamic pressure: {0:0.0}", vesselState.dynamicPressure);
+                    GravityTurner.Log("  vessel maxQ: {0:0.0}", vesselState.maxQ);
                     GravityTurner.DebugMessage += "  Deploying top Fairing!!!\n";
                     return;
                 }
@@ -91,6 +96,7 @@ namespace GravityTurn
                         lastStageTime = vesselState.time;
                     }
                     GravityTurner.DebugMessage += "    ActivateNextStage\n";
+                    GravityTurner.Log("Activate next stage.");
                     StageManager.ActivateNextStage();
                     countingDown = false;
                     GravityTurner.RestoreTimeWarp();
@@ -193,8 +199,6 @@ namespace GravityTurn
                 return true; // TODO: properly check if ModuleEngines is active
             }
 
-
-            if (p.IsFuelTank() && p.FuelTankHasFuel()) return true;
             if (!p.IsSepratron())
             {
                 for (int i = 0; i < p.Resources.Count; i++)

@@ -53,9 +53,9 @@ namespace GravityTurn
         [Persistent]
         public bool EnableStageManager = true;
         [Persistent]
-        public bool EnableSpeedup = true;
+        public bool EnableSpeedup = false;
         [Persistent]
-        public EditableValue FairingPressure = new EditableValue(10, "{0:0}");
+        public EditableValue FairingPressure = new EditableValue(1000, "{0:0}");
         [Persistent]
         public EditableValue autostagePostDelay = new EditableValue(0.3d, "{0:0.0}");
         [Persistent]
@@ -271,6 +271,14 @@ namespace GravityTurn
 
         public void CalculateSettings(Vessel vessel, bool UseBest = false)
         {
+            if (GameSettings.MODIFIER_KEY.GetKey())
+            {
+                launchdb.Clear();
+                TurnAngle = 10;
+                StartSpeed = 100;
+                GravityTurner.Log("Reset results");
+                return;
+            }
             Log("Min orbit height: {0}", vessel.StableOrbitHeight());
 
             stagestats.ForceSimunlation();
@@ -295,6 +303,7 @@ namespace GravityTurn
                     TurnAngle = Mathf.Clamp((float)(10 + TWR * 5), 10, 80);
                 if (!StartSpeed.locked)
                     StartSpeed = Mathf.Clamp((float)(100 - TWR * 30), 10, 100);
+
             }
 
             double guessTurn, guessSpeed;
@@ -477,19 +486,25 @@ namespace GravityTurn
         static public void RestoreTimeWarp()
         {
             if (previousTimeWarp != 0)
-                TimeWarp.SetRate(previousTimeWarp, true);
+            {
+                TimeWarp.fetch.Mode = TimeWarp.Modes.LOW;
+                TimeWarp.SetRate(previousTimeWarp, false);
+            }
             previousTimeWarp = 0;
         }
 
         public void ApplySpeedup(int rate)
         {
             if (EnableSpeedup)
-                TimeWarp.SetRate(previousTimeWarp < rate ? rate : previousTimeWarp, true);
+            {
+                TimeWarp.fetch.Mode = TimeWarp.Modes.LOW;
+                TimeWarp.SetRate(previousTimeWarp < rate ? rate : previousTimeWarp, false);
+            }
         }
 
         static public void StopSpeedup()
         {
-            TimeWarp.SetRate(0, true);
+            TimeWarp.SetRate(0, false);
         }
 
         static double delayUT = double.NaN;
@@ -533,14 +548,17 @@ namespace GravityTurn
             else
             {
                 if (EnableStageManager)
+                {
+                    DebugMessage += "Autostaging active\n";
                     stage.Update();
+                }
                 if (vessel.orbit.ApA < DestinationHeight * 1000)
                     s.mainThrottle = Calculations.APThrottle(vessel.orbit.timeToAp, this);
                 else
                     s.mainThrottle = 0;
                 if (program == AscentProgram.InInitialPitch && PitchSet)
                 {
-                    if (vessel.ProgradePitch() + 90 >= TurnAngle-0.3)
+                    if (vessel.ProgradePitch() + 90 >= TurnAngle-0.1)
                     {
                         delayUT = double.NaN;
                         // continue any previous timewarp
@@ -566,11 +584,10 @@ namespace GravityTurn
                         PitchSet = true;
                         delayUT = Planetarium.GetUniversalTime();
                     }
-                    double diffUT = Planetarium.GetUniversalTime() - delayUT;
                     DebugMessage += "In Pitch program\n";
+                    double diffUT = Planetarium.GetUniversalTime() - delayUT;
+                    float newPitch = Mathf.Min((float)(((double)TurnAngle * diffUT) / 5.0d + 2.0d), TurnAngle);
                     double pitch = 90d - vesselState.vesselPitch;
-
-                    float newPitch = Mathf.Min((float)(((double)TurnAngle * diffUT) / 5.0d + 1.0d), TurnAngle);
                     attitude.attitudeTo(Quaternion.Euler(-90 + newPitch, LaunchHeading(vessel), 0) * RollRotation(), AttitudeReference.SURFACE_NORTH, this);
                     DebugMessage += String.Format("TurnAngle: {0:0.00}\n", TurnAngle.value);
                     DebugMessage += String.Format("Target pitch: {0:0.00}\n", newPitch);
@@ -583,6 +600,7 @@ namespace GravityTurn
                 }
                 else
                 {
+                    DebugMessage += "Insertion program\n";
                     Quaternion q = Quaternion.Euler(0 - PitchAdjustment, 0, Roll);
                     // smooth out change from surface to orbital prograde
                     if (program != AscentProgram.InInsertion && program != AscentProgram.InCoasting)
@@ -655,7 +673,7 @@ namespace GravityTurn
                 "GravityDrag:\t{1:0.00}m/s²\n" +
                 "Thrust Vector Drag:\t{5:0.00}m/s²\n" +
                 "Air Drag Loss:\t{2:0.00}m/s\n" +
-                "Gravity Drag Loss:\t{3:0.00} -> {4:0.00}m/s (at AP)\n\n" +
+                "Gravity Drag Loss:\t{3:0.00} -> {4:0.00}m/s @AP\n\n" +
                 "Total Vector Loss:\t{6:0.00}m/s\n" +
                 "Total Loss:\t{7:0.00}m/s\n" +
                 "Total Burn:\t\t{8:0.0}",
