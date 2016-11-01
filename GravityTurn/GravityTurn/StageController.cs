@@ -32,7 +32,7 @@ namespace GravityTurn
             if (!vessel.isActiveVessel)
                 return;
 
-            GravityTurner.DebugMessage = "StageController is active\n";
+            GravityTurner.DebugMessage = String.Format("StageController is active {0}, {1}\n", StageManager.CurrentStage, vessel.currentStage);
 
             //if autostage enabled, and if we are not waiting on the pad, and if there are stages left,
             //and if we are allowed to continue staging, and if we didn't just fire the previous stage
@@ -291,10 +291,12 @@ namespace GravityTurn
             }
             return false;
         }
-        public static Part GetTopmostFairing(Vessel v)
+        public Part GetTopmostFairing(Vessel v)
         {
             foreach (Part p in v.parts.Slinq().OrderBy(o => o.inverseStage).ToList())
             {
+                if (p.inverseStage < turner.autostageLimit)
+                    continue;
                 if (p.HasModule<ModuleProceduralFairing>() || (p.FindModulesImplementing<ModuleProceduralFairing>().Count > 0 && p.Modules.Contains("ProceduralFairingDecoupler")))
                     return p;
             }
