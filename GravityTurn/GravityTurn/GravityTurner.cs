@@ -271,11 +271,16 @@ namespace GravityTurn
 
         public void CalculateSettings(Vessel vessel, bool UseBest = false)
         {
+            float baseFactor = Mathf.Round((float)vessel.mainBody.GeeASL * 100.0f) / 10.0f;
+            Log("Base turn speed factor {0:0.00}", baseFactor);
+
+            // reset the settings to defaults
             if (GameSettings.MODIFIER_KEY.GetKey())
             {
                 launchdb.Clear();
                 TurnAngle = 10;
-                StartSpeed = 100;
+                StartSpeed = baseFactor * 10.0;
+                DestinationHeight = (vessel.StableOrbitHeight() + 10000) / 1000;
                 GravityTurner.Log("Reset results");
                 return;
             }
@@ -302,7 +307,7 @@ namespace GravityTurn
                 if (!TurnAngle.locked)
                     TurnAngle = Mathf.Clamp((float)(10 + TWR * 5), 10, 80);
                 if (!StartSpeed.locked)
-                    StartSpeed = Mathf.Clamp((float)(100 - TWR * 30), 10, 100);
+                    StartSpeed = Mathf.Clamp((float)(baseFactor * 10 - TWR * baseFactor * 3), baseFactor, baseFactor * 10);
 
             }
 
@@ -547,6 +552,7 @@ namespace GravityTurn
             }
             else
             {
+                double minInsertionHeight = vessel.mainBody.atmosphere ? vessel.StableOrbitHeight() / 4 : Math.Max(DestinationHeight*667, vessel.StableOrbitHeight()*0.667);
                 if (EnableStageManager)
                 {
                     DebugMessage += "Autostaging active\n";
@@ -558,7 +564,7 @@ namespace GravityTurn
                     s.mainThrottle = 0;
                 if (program == AscentProgram.InInitialPitch && PitchSet)
                 {
-                    if (vessel.ProgradePitch() + 90 >= TurnAngle-0.1)
+                    if (vessel.ProgradePitch() + 90 >= TurnAngle - 0.1)
                     {
                         delayUT = double.NaN;
                         // continue any previous timewarp
@@ -587,20 +593,21 @@ namespace GravityTurn
                     DebugMessage += "In Pitch program\n";
                     double diffUT = Planetarium.GetUniversalTime() - delayUT;
                     float newPitch = Mathf.Min((float)(((double)TurnAngle * diffUT) / 5.0d + 2.0d), TurnAngle);
-                    double pitch = 90d - vesselState.vesselPitch;
+                    double pitch = (90d - vesselState.vesselPitch + vessel.ProgradePitch() + 90)/2;
                     attitude.attitudeTo(Quaternion.Euler(-90 + newPitch, LaunchHeading(vessel), 0) * RollRotation(), AttitudeReference.SURFACE_NORTH, this);
                     DebugMessage += String.Format("TurnAngle: {0:0.00}\n", TurnAngle.value);
                     DebugMessage += String.Format("Target pitch: {0:0.00}\n", newPitch);
                     DebugMessage += String.Format("Current pitch: {0:0.00}\n", pitch);
+                    DebugMessage += String.Format("Prograde pitch: {0:0.00}\n", vessel.ProgradePitch()+90);
                 }
-                else if (vesselState.dynamicPressure > vesselState.maxQ * 0.5 || vesselState.dynamicPressure > PressureCutoff)
-                { // Still ascending, or not yet below the cutoff pressure
+                else if (vesselState.dynamicPressure > vesselState.maxQ * 0.5 || vesselState.dynamicPressure > PressureCutoff || vessel.altitude < minInsertionHeight)
+                { // Still ascending, or not yet below the cutoff pressure or below min insertion heigt
                     DebugMessage += "In Turn program\n";
                     attitude.attitudeTo(Quaternion.Euler(vessel.ProgradePitch() - PitchAdjustment, LaunchHeading(vessel), 0) * RollRotation(), AttitudeReference.SURFACE_NORTH, this);
                 }
                 else
                 {
-                    DebugMessage += "Insertion program\n";
+                    DebugMessage += String.Format("Insertion program {0:0}, {1:0}\n", minInsertionHeight, vessel.altitude);
                     Quaternion q = Quaternion.Euler(0 - PitchAdjustment, 0, Roll);
                     // smooth out change from surface to orbital prograde
                     if (program != AscentProgram.InInsertion && program != AscentProgram.InCoasting)
