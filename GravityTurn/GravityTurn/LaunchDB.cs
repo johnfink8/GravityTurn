@@ -257,11 +257,11 @@ namespace GravityTurn
         }
 
         ///<summary>
-        ///Get or create a new DBEntry based on angle and speed, so we don't have duplicates.
+        ///Get or create a new DBEntry based on angle, speed and destination height, so we don't have duplicates.
         ///</summary>
         DBEntry GetEntry()
         {
-            DBEntry foundEntry = FindEntry(turner.TurnAngle, turner.StartSpeed, turner.DestinationHeight);
+            DBEntry foundEntry = FindEntry(turner.StartSpeed, turner.TurnAngle, turner.DestinationHeight);
             if (foundEntry != null)
                 return foundEntry;
             GravityTurner.Log("Recording new launch record #{0}", DB.Count);
@@ -269,7 +269,11 @@ namespace GravityTurn
             DBEntry newentry = new DBEntry();
             DB.Add(newentry);
             return newentry;
-        }
+        } 
+
+        ///<summary>
+        /// find a similar DBEntry based on angle, speed and destination height, so we don't have duplicates.
+        ///</summary>
         DBEntry FindEntry(double startSpeed, double turnAngle, double destinationHeight)
         {
             foreach (DBEntry entry in DB)
