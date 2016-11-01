@@ -157,7 +157,7 @@ namespace GravityTurn.Window
             {
                 turner.Launch();
             }
-            if (turner.Launching && GUILayout.Button("Abort!"))
+            if (turner.Launching && GUILayout.Button("Abort!", GUILayout.MinHeight(30)))
             {
                 turner.Kill();
                 turner.RecordAbortedLaunch();

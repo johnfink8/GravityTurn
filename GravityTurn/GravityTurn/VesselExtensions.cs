@@ -35,7 +35,7 @@ namespace GravityTurn
             if (v.mainBody.atmosphere)
                 return v.mainBody.atmosphereDepth;
             else
-                return v.mainBody.Radius + v.mainBody.timeWarpAltitudeLimits[1];
+                return v.mainBody.timeWarpAltitudeLimits[1];
         }
 
         public static Vector3d up(this Vessel vessel)
