@@ -19,6 +19,8 @@ namespace GravityTurn.Window
             stagesettings = new StageSettings(inTurner, inWindowID + 2, helpWindow);
             windowPos.width = 300;
             windowPos.height = 100;
+            Version v = typeof(GravityTurner).Assembly.GetName().Version;
+            WindowTitle = String.Format("GravityTurn V {0}.{1}.{2}", v.Major, v.Minor, v.Build);
         }
 
         private void UiStartSpeed()
@@ -104,6 +106,28 @@ namespace GravityTurn.Window
             GUILayout.EndHorizontal();
         }
 
+        private string GetAscentPhaseString(GravityTurner.AscentProgram program)
+        {
+            switch (program)
+            {
+                case GravityTurner.AscentProgram.Landed:
+                    return "Landed";
+                case GravityTurner.AscentProgram.InLaunch:
+                    return "Launching";
+                case GravityTurner.AscentProgram.InInitialPitch:
+                    return "Pitching";
+                case GravityTurner.AscentProgram.InTurn:
+                    return "Turning";
+                case GravityTurner.AscentProgram.InInsertion:
+                    return "Insertion";
+                case GravityTurner.AscentProgram.InCoasting:
+                    return "Coasting";
+                case GravityTurner.AscentProgram.InCircularisation:
+                    return "";
+            }
+            return "";
+        }
+
         public override void WindowGUI(int windowID)
         {
             base.WindowGUI(windowID);
@@ -135,10 +159,15 @@ namespace GravityTurn.Window
             {
                 turner.statsWindow.WindowVisible = turner.EnableStats;
                 turner.statsWindow.Save();
+                if (!turner.statsWindow.WindowVisible)
+                {
+                    turner.statsWindow.windowPos.height = 200;
+                    GravityTurner.DebugShow = false;
+                }
             }
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
-            GUILayout.Label(string.Format("Time to match: {0:0.0}", turner.HoldAPTime), GUILayout.ExpandWidth(false));
+            GUILayout.Label(string.Format("{0}, time to match: {1:0.0} s", GetAscentPhaseString(turner.program), turner.HoldAPTime), GUILayout.ExpandWidth(false));
             GUILayout.EndHorizontal();
             if (GravityTurner.getVessel.Landed && !turner.Launching)
             {
