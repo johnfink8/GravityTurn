@@ -8,21 +8,26 @@ namespace GravityTurn
 {
     public static class VesselExtensions
     {
-        public static bool StageHasSolidEngine(this Vessel vessel,int inverseStage)
+        public static bool StageHasSolidEngine(this Vessel vessel, int inverseStage)
         {
-            foreach (Part p in vessel.parts)
+            for (int i = 0; i < vessel.parts.Count; i++)
             {
-                if (p.inverseStage == inverseStage)
+                Part part = vessel.parts[i];
+                if (part.inverseStage == inverseStage)
                 {
-                    foreach (ModuleEngines e in p.FindModulesImplementing<ModuleEngines>())
+                    for (int m = 0; m < part.Modules.Count; m++)
                     {
-                        if (e.engineType == EngineType.SolidBooster)
+                        var engine = part.Modules[m] as ModuleEngines;
+                        if (engine && engine.engineType == EngineType.SolidBooster)
+                        {
                             return true;
+                        }
                     }
                 }
             }
             return false;
         }
+
         public static bool IsInStableOrbit(this Vessel v)
         {
             if (v.orbit.ApA > v.StableOrbitHeight() && v.orbit.PeA > v.StableOrbitHeight())
@@ -80,8 +85,9 @@ namespace GravityTurn
         public static Part CriticalHeatPart(this Vessel v)
         {
             Part hottest = null;
-            foreach (Part p in v.parts)
+            for (int i = 0; i < v.parts.Count; i++)
             {
+                Part p = v.parts[i];
                 if (hottest == null || p.CriticalHeat() > hottest.CriticalHeat())
                     hottest = p;
             }
@@ -128,15 +134,24 @@ namespace GravityTurn
             return mn;
         }
 
+        // 0.90 added a building upgrade to unlock Orbit visualization and patched conics
+        // Unfortunately when patchedConics are disabled vessel.patchedConicSolver is null
+        // So we need to add a lot of sanity check and/or disable modules
+        public static bool patchedConicsUnlocked(this Vessel vessel)
+        {
+            return GameVariables.Instance.GetOrbitDisplayMode(ScenarioUpgradeableFacilities.GetFacilityLevel(SpaceCenterFacility.TrackingStation)) == GameVariables.OrbitDisplayMode.PatchedConics;
+        }
+
         public static bool HasActiveSRB(this Vessel vessel)
         {
-            foreach (Part part in vessel.parts)
+            for (int i = 0; i < vessel.parts.Count; i++)
             {
+                Part part = vessel.parts[i];
                 if (part.isActiveAndEnabled)
                 {
-                    foreach (PartModule module in part.Modules)
+                    for (int m = 0; m < part.Modules.Count; m++)
                     {
-                        var engine = module as ModuleEngines;
+                        var engine = part.Modules[m] as ModuleEngines;
                         if (engine != null && engine.engineType == EngineType.SolidBooster && engine.propellantReqMet>0)
                             return true;
                     }
