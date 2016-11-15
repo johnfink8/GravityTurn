@@ -50,6 +50,7 @@ namespace GravityTurn.Window
         public bool WindowVisible = false; 
         public string WindowTitle = "GravityTurn";
         string filename;
+        public static bool ShowGUI = true;
 
         [Persistent]
         public PersistentWindow windowPos = new PersistentWindow();
@@ -97,6 +98,8 @@ namespace GravityTurn.Window
 
         public virtual void WindowGUI(int windowID)
         {
+            if (!ShowGUI)
+                return;
             if (GUI.Button(new Rect(windowPos.width - 18, 2, 16, 16), "X"))
             {
                 WindowVisible = false;
@@ -105,7 +108,7 @@ namespace GravityTurn.Window
         }
         public void drawGUI()
         {
-            if (WindowVisible)
+            if (WindowVisible && ShowGUI)
             {
                 GuiUtils.LoadSkin(GuiUtils.SkinType.Compact);
                 GUI.skin = GuiUtils.skin;
