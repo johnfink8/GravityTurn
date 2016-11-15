@@ -1,4 +1,5 @@
-﻿using System;
+﻿using GravityTurn.Window;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
@@ -547,6 +548,28 @@ namespace GravityTurn
                 return 0;
             }
             return impactTime - decelTime / 2 - vesselState.time;
+        }
+
+        public static string FormatOrbitAltitude(double altitude)
+        {
+            if (altitude > 1)
+                return String.Format("{0:0.0} km", altitude / 1000.0);
+            else
+                return "-";
+        }
+        public static string FormatOrbitTime(double time)
+        {
+            if (time > 0.01)
+                return GuiUtils.TimeToDHMS(time, 1);
+            else
+                return "-";
+        }
+        public static string FormatOrbitInfo(double altitude, double time)
+        {
+            if (altitude > 1)
+                return String.Format("{0} in {1}", FormatOrbitAltitude(altitude), FormatOrbitTime(time));
+            else
+                return "-";
         }
     }
 }
