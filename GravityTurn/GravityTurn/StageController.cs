@@ -32,7 +32,7 @@ namespace GravityTurn
             if (!vessel.isActiveVessel)
                 return;
 
-            GravityTurner.DebugMessage = String.Format("StageController is active {0}, {1}\n", StageManager.CurrentStage, vessel.currentStage);
+            GravityTurner.DebugMessage += String.Format("StageController is active {0}, {1}\n", StageManager.CurrentStage, vessel.currentStage);
 
             //if autostage enabled, and if we are not waiting on the pad, and if there are stages left,
             //and if we are allowed to continue staging, and if we didn't just fire the previous stage

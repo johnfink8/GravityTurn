@@ -930,7 +930,11 @@ namespace GravityTurn
         // Altitude of bottom of craft, only calculated when requested because it is a bit expensive
         private bool altitudeBottomIsCurrent = false;
         private double _altitudeBottom;
+        private double _altitudeTop;
 
+        /// <summary>
+        /// altitude at the bottom of the vessel
+        /// </summary>
         public double altitudeBottom
         {
             get
@@ -941,6 +945,38 @@ namespace GravityTurn
                     altitudeBottomIsCurrent = true;
                 }
                 return _altitudeBottom;
+            }
+        }
+
+        /// <summary>
+        /// altitude of the top of the vessel
+        /// </summary>
+        public double altitudeTop
+        {
+            get
+            {
+                if (!altitudeBottomIsCurrent)
+                {
+                    _altitudeBottom = ComputeVesselBottomAltitude(vesselRef);
+                    altitudeBottomIsCurrent = true;
+                }
+                return _altitudeTop;
+            }
+        }
+
+        /// <summary>
+        /// gets the height of the vessel
+        /// </summary>
+        public double vesselHeight
+        {
+            get
+            {
+                if (!altitudeBottomIsCurrent)
+                {
+                    ComputeVesselBottomAltitude(vesselRef);
+                    altitudeBottomIsCurrent = true;
+                }
+                return _altitudeTop - _altitudeBottom;
             }
         }
 
@@ -964,6 +1000,12 @@ namespace GravityTurn
                     if (partAltitudeBottom < ret)
                     {
                         ret = partAltitudeBottom;
+                    }
+                    double partAltitudeTop = vessel.mainBody.GetAltitude(bounds.center) + partRadius - surfaceAltitudeASL;
+                    partAltitudeTop = Math.Max(0, partAltitudeTop);
+                    if (partAltitudeTop > _altitudeTop)
+                    {
+                        _altitudeTop = partAltitudeTop;
                     }
                 }
             }
