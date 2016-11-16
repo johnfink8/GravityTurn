@@ -167,8 +167,20 @@ namespace GravityTurn.Window
             }
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
-            GUILayout.Label(string.Format("{0}, time to match: {1:0.0} s", GetAscentPhaseString(turner.program), turner.HoldAPTime), GUILayout.ExpandWidth(false));
+            // when not landed and not launching we are in orbit. allow to save.
+            if (!GravityTurner.getVessel.Landed && !turner.Launching)
+            {
+                if (turner.program >= GravityTurner.AscentProgram.InCircularisation)
+                    GUILayout.Label("Launch success! ", GUILayout.ExpandWidth(false));
+
+                if (GUILayout.Button(GuiUtils.saveIcon, GUILayout.ExpandWidth(false), GUILayout.MinWidth(18), GUILayout.MinHeight(21)))
+                    turner.SaveDefaultParameters();
+            }
+            else
+                GUILayout.Label(string.Format("{0}, time to match: {1:0.0} s", GetAscentPhaseString(turner.program), turner.HoldAPTime), GUILayout.ExpandWidth(false));
             GUILayout.EndHorizontal();
+
+            // landed, not launched yet. Allow configuration
             if (GravityTurner.getVessel.Landed && !turner.Launching)
             {
                 GUILayout.BeginHorizontal();
@@ -182,17 +194,19 @@ namespace GravityTurn.Window
                     turner.SaveDefaultParameters();
                 GUILayout.EndHorizontal();
             }
+            // while landed, show launch button
             if (GravityTurner.getVessel.Landed && !turner.Launching && GUILayout.Button("Launch!", GUILayout.ExpandWidth(true), GUILayout.MinHeight(30)))
             {
                 turner.Launch();
             }
+            // while launching, show launch button
             if (turner.Launching && GUILayout.Button("Abort!", GUILayout.MinHeight(30)))
             {
                 turner.Kill();
                 turner.RecordAbortedLaunch();
             }
 #if DEBUG
-           // GUILayout.Label(GravityTurner.DebugMessage, GUILayout.ExpandWidth(true), GUILayout.MinHeight(200));
+            // GUILayout.Label(GravityTurner.DebugMessage, GUILayout.ExpandWidth(true), GUILayout.MinHeight(200));
 #endif
 
             GUILayout.EndVertical();
