@@ -587,6 +587,7 @@ namespace GravityTurn
                 Kill();
                 return;
             }
+            DebugMessage = "";
             Vessel vessel = getVessel;
             if (program != AscentProgram.InCoasting && vessel.orbit.ApA > DestinationHeight * 1000 && vessel.altitude < vessel.StableOrbitHeight())
             {
@@ -616,17 +617,16 @@ namespace GravityTurn
                     program = AscentProgram.InCircularisation;
                     mucore.CircularizeAtAP();
                 }
-                mainWindow.WindowVisible = false;
+
+                button.SetFalse();
             }
             else
             {
                 double minInsertionHeight = vessel.mainBody.atmosphere ? vessel.StableOrbitHeight() / 4 : Math.Max(DestinationHeight*667, vessel.StableOrbitHeight()*0.667);
-                DebugMessage = "Autostaging disabled\n";
-                if (EnableStageManager)
-                {
-                    DebugMessage = "Autostaging active\n";
+
+                if (EnableStageManager && stage != null)
                     stage.Update();
-                }
+
                 if (vessel.orbit.ApA < DestinationHeight * 1000)
                     s.mainThrottle = Calculations.APThrottle(vessel.orbit.timeToAp, this);
                 else
@@ -647,7 +647,11 @@ namespace GravityTurn
                 {
                     DebugMessage += "In Launch program\n";
                     program = AscentProgram.InLaunch;
-                    attitude.attitudeTo(Quaternion.Euler(-90, LaunchHeading(vessel), 0) * RollRotation(), AttitudeReference.SURFACE_NORTH, this);
+
+                    if (vessel.GetHeightFromTerrain() > 30)
+                        attitude.attitudeTo(Quaternion.Euler(-90, LaunchHeading(vessel), 0) * RollRotation(), AttitudeReference.SURFACE_NORTH, this);
+                    else
+                        attitude.attitudeTo(Quaternion.Euler(-90, 0, 0), AttitudeReference.SURFACE_NORTH, this);
                 }
                 else if (program == AscentProgram.InLaunch || program == AscentProgram.InInitialPitch)
                 {
@@ -686,9 +690,12 @@ namespace GravityTurn
                         // start timer
                         if (Double.IsNaN(delayUT))
                         {
+                            // slow down timewarp
                             delayUT = Planetarium.GetUniversalTime();
                             StoreTimeWarp();
                             StopSpeedup();
+                            // switch NavBall UI
+                            FlightGlobals.SetSpeedMode(FlightGlobals.SpeedDisplayModes.Orbit);
                         }
                         double diffUT = Planetarium.GetUniversalTime() - delayUT;
                         //attitude.attitudeTo(q, AttitudeReference.ORBIT, this);
@@ -713,14 +720,13 @@ namespace GravityTurn
         string PreflightInfo(Vessel vessel)
         {
             string info = "";
+            info += string.Format("Surface TWR:\t{0:0.00}\n", TWRWeightedAverage(2 * vessel.mainBody.GeeASL * DestinationHeight, vessel));
+            info += string.Format("Mass:\t\t{0:0.00} t\n", vesselState.mass);
             info += string.Format("Drag area:\t\t{0:0.00}\n", vesselState.areaDrag);
             info += string.Format("Drag coefficient:\t{0:0.00}\n", vesselState.dragCoef);
             info += string.Format("Drag coefficient fwd:\t{0:0.00}\n", vessel.DragCubeCoefForward());
-            info += string.Format("Mass:\t\t{0:0.00} t\n", vesselState.mass);
             DragRatio.value = vesselState.areaDrag / vesselState.mass;
             info += string.Format("area/mass:\t{0:0.00}\n", DragRatio.value);
-            info += string.Format("Surface TWR:\t{0:0.00}\n", TWRWeightedAverage(2 * vessel.mainBody.GeeASL * DestinationHeight, vessel));
-            info += string.Format("Pitch:\t\t{0:0.00} °", vessel.Pitch());
             return info;
         }
 
