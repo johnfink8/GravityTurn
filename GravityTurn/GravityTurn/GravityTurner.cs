@@ -647,8 +647,7 @@ namespace GravityTurn
                 {
                     DebugMessage += "In Launch program\n";
                     program = AscentProgram.InLaunch;
-
-                    if (vessel.GetHeightFromTerrain() > 30)
+                    if (vesselState.altitudeBottom > vesselState.vesselHeight)
                         attitude.attitudeTo(Quaternion.Euler(-90, LaunchHeading(vessel), 0) * RollRotation(), AttitudeReference.SURFACE_NORTH, this);
                     else
                         attitude.attitudeTo(Quaternion.Euler(-90, 0, 0), AttitudeReference.SURFACE_NORTH, this);
@@ -722,6 +721,8 @@ namespace GravityTurn
             string info = "";
             info += string.Format("Surface TWR:\t{0:0.00}\n", TWRWeightedAverage(2 * vessel.mainBody.GeeASL * DestinationHeight, vessel));
             info += string.Format("Mass:\t\t{0:0.00} t\n", vesselState.mass);
+            info += string.Format("Height:\t\t{0:0.0} m\n", vesselState.vesselHeight);
+            info += "\n";
             info += string.Format("Drag area:\t\t{0:0.00}\n", vesselState.areaDrag);
             info += string.Format("Drag coefficient:\t{0:0.00}\n", vesselState.dragCoef);
             info += string.Format("Drag coefficient fwd:\t{0:0.00}\n", vessel.DragCubeCoefForward());
