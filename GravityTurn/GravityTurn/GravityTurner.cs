@@ -8,6 +8,7 @@ using System.IO;
 using System.Diagnostics;
 using KSP.UI.Screens;
 using KramaxReloadExtensions;
+using KSP.UI.Screens.Flight;
 
 namespace GravityTurn
 {
@@ -17,6 +18,7 @@ namespace GravityTurn
         public enum AscentProgram
         {
             Landed,
+            InLaunch,
             InTurn,
             InInitialPitch,
             InInsertion,
@@ -77,6 +79,7 @@ namespace GravityTurn
         public double TimeSpeed = 0;
         public double PrevTime = 0;
         public MovingAverage PitchAdjustment = new MovingAverage(4, 0);
+        public float YawAdjustment = 0.0f;
         public bool Launching = false;
         public string LaunchName = "";
         public CelestialBody LaunchBody = null;
@@ -120,6 +123,7 @@ namespace GravityTurn
         MechjebWrapper mucore = new MechjebWrapper();
         LaunchDB launchdb = null;
         static int previousTimeWarp = 0;
+        static public double inclinationHeadingCorrectionSpeed = 0;
 
         public bool IsLaunchDBEmpty()
         {
@@ -160,11 +164,23 @@ namespace GravityTurn
 
         private void OnGUI()
         {
+            // hide UI if F2 was pressed
+            if (!Window.BaseWindow.ShowGUI)
+                return;
             if (Event.current.type == EventType.Repaint || Event.current.isMouse)
             {
                 //myPreDrawQueue(); // Your current on preDrawQueue code
             }
             windowManager.DrawGuis(); // Your current on postDrawQueue code
+        }
+
+        private void ShowGUI()
+        {
+            Window.BaseWindow.ShowGUI = true;
+        }
+        private void HideGUI()
+        {
+            Window.BaseWindow.ShowGUI = false;
         }
 
         /*
@@ -200,6 +216,9 @@ namespace GravityTurn
                 mainWindow = new Window.MainWindow(this, 6378070);
                 flightMapWindow = new Window.FlightMapWindow(this, 548302);
                 statsWindow = new Window.StatsWindow(this, 6378070 + 4);
+
+                GameEvents.onShowUI.Add(ShowGUI);
+                GameEvents.onHideUI.Add(HideGUI);
             }
             catch (Exception ex)
             {
@@ -228,6 +247,10 @@ namespace GravityTurn
             Message = "";
             VectorLoss = 0;
             HorizontalDistance = 0;
+            inclinationHeadingCorrectionSpeed = Calculations.CircularOrbitSpeed(getVessel.mainBody, getVessel.mainBody.Radius + DestinationHeight * 1000);
+            Log("Orbit velocity {0:0.0}", inclinationHeadingCorrectionSpeed);
+            inclinationHeadingCorrectionSpeed /= 1.7;
+            Log("inclination heading correction {0:0.0}", inclinationHeadingCorrectionSpeed);
             MaxThrust = GetMaxThrust(vessel);
             bool openFlightmap = false;
             openFlightmap = flightMapWindow.WindowVisible;
@@ -307,7 +330,11 @@ namespace GravityTurn
                 if (!TurnAngle.locked)
                     TurnAngle = Mathf.Clamp((float)(10 + TWR * 5), 10, 80);
                 if (!StartSpeed.locked)
+                {
                     StartSpeed = Mathf.Clamp((float)(baseFactor * 10 - TWR * baseFactor * 3), baseFactor, baseFactor * 10);
+                    if (StartSpeed < 10)
+                        StartSpeed = 10;
+                }
             }
 
             double guessTurn, guessSpeed;
@@ -363,6 +390,7 @@ namespace GravityTurn
             getVessel.OnFlyByWire += new FlightInputCallback(fly);
             Launching = true;
             PitchSet = false;
+            DebugShow = false;
             program = AscentProgram.Landed;
             SaveParameters();
             LaunchName = new string(getVessel.vesselName.ToCharArray());
@@ -405,6 +433,44 @@ namespace GravityTurn
                 attitude.OnFixedUpdate();
                 stagestats.OnFixedUpdate();
                 stagestats.RequestUpdate(this);
+            }
+            else if (EnableStats && !getVessel.Landed && getVessel.IsInStableOrbit())
+            {
+                if (VectorLoss > 0.01)
+                {
+                    Message = string.Format(
+                        "Total Vector Loss:\t{0:0.00} m/s\n" +
+                        "Total Loss:\t{1:0.00} m/s\n" +
+                        "Total Burn:\t\t{2:0.0}\n\n",
+                        VectorLoss,
+                        TotalLoss,
+                        TotalBurn
+                        );
+                }
+                else
+                    Message = "";
+
+                Message += string.Format(
+                    "Apoapsis:\t\t{0}\n" +
+                    "Periapsis:\t\t{1}\n" +
+                    "Inclination:\t\t{2:0.0} °\n",
+                    OrbitExtensions.FormatOrbitInfo(getVessel.orbit.ApA, getVessel.orbit.timeToAp),
+                    OrbitExtensions.FormatOrbitInfo(getVessel.orbit.PeA, getVessel.orbit.timeToPe),
+                    getVessel.orbit.inclination
+                    );
+
+            }
+            else if (EnableStats && getVessel.Landed)
+            {
+                double diffUT = Planetarium.GetUniversalTime() - delayUT;
+                if (diffUT > 1 || Double.IsNaN(delayUT))
+                {
+                    vesselState.Update(getVessel);
+                    stagestats.OnFixedUpdate();
+                    stagestats.RequestUpdate(this);
+                    Message = PreflightInfo(getVessel);
+                    delayUT = Planetarium.GetUniversalTime();
+                }
             }
         }
 
@@ -462,7 +528,7 @@ namespace GravityTurn
 
         private float LaunchHeading(Vessel vessel)
         {
-            return (float)MuUtils.HeadingForLaunchInclination(vessel.mainBody, Inclination, vessel.latitude, vesselState.orbitalVelocity.magnitude);
+            return (float)MuUtils.HeadingForLaunchInclination(vessel.mainBody, Inclination, vessel.latitude, inclinationHeadingCorrectionSpeed);
         }
 
         private float ProgradeHeading(bool surface = true)
@@ -520,9 +586,11 @@ namespace GravityTurn
                 Kill();
                 return;
             }
+            DebugMessage = "";
             Vessel vessel = getVessel;
             if (program != AscentProgram.InCoasting && vessel.orbit.ApA > DestinationHeight * 1000 && vessel.altitude < vessel.StableOrbitHeight())
             {
+                CalculateLosses(getVessel);
                 // save launch, ignoring losses due to coasting losses, but so we get results earlier
                 launchdb.RecordLaunch();
                 launchdb.Save();
@@ -548,15 +616,16 @@ namespace GravityTurn
                     program = AscentProgram.InCircularisation;
                     mucore.CircularizeAtAP();
                 }
+
+                button.SetFalse();
             }
             else
             {
                 double minInsertionHeight = vessel.mainBody.atmosphere ? vessel.StableOrbitHeight() / 4 : Math.Max(DestinationHeight*667, vessel.StableOrbitHeight()*0.667);
-                if (EnableStageManager)
-                {
-                    DebugMessage += "Autostaging active\n";
+
+                if (EnableStageManager && stage != null)
                     stage.Update();
-                }
+
                 if (vessel.orbit.ApA < DestinationHeight * 1000)
                     s.mainThrottle = Calculations.APThrottle(vessel.orbit.timeToAp, this);
                 else
@@ -576,10 +645,13 @@ namespace GravityTurn
                 if (vessel.speed < StartSpeed)
                 {
                     DebugMessage += "In Launch program\n";
-                    program = AscentProgram.InInitialPitch;
-                    attitude.attitudeTo(Quaternion.Euler(-90, LaunchHeading(vessel), 0) * RollRotation(), AttitudeReference.SURFACE_NORTH, this);
+                    program = AscentProgram.InLaunch;
+                    if (vesselState.altitudeBottom > vesselState.vesselHeight)
+                        attitude.attitudeTo(Quaternion.Euler(-90, LaunchHeading(vessel), 0) * RollRotation(), AttitudeReference.SURFACE_NORTH, this);
+                    else
+                        attitude.attitudeTo(Quaternion.Euler(-90, 0, 0), AttitudeReference.SURFACE_NORTH, this);
                 }
-                else if (program == AscentProgram.InInitialPitch)
+                else if (program == AscentProgram.InLaunch || program == AscentProgram.InInitialPitch)
                 {
                     if (!PitchSet)
                     {
@@ -587,6 +659,7 @@ namespace GravityTurn
                         StoreTimeWarp();
                         StopSpeedup();
                         PitchSet = true;
+                        program = AscentProgram.InInitialPitch;
                         delayUT = Planetarium.GetUniversalTime();
                     }
                     DebugMessage += "In Pitch program\n";
@@ -606,19 +679,24 @@ namespace GravityTurn
                 }
                 else
                 {
-                    DebugMessage += String.Format("Insertion program {0:0}, {1:0}\n", minInsertionHeight, vessel.altitude);
-                    Quaternion q = Quaternion.Euler(0 - PitchAdjustment, 0, Roll);
+                    // did we reach the desired inclination?
+                    DebugMessage += String.Format("Insertion program\n");
+                    Quaternion q = Quaternion.Euler(0 - PitchAdjustment, YawAdjustment, Roll);
                     // smooth out change from surface to orbital prograde
                     if (program != AscentProgram.InInsertion && program != AscentProgram.InCoasting)
                     {
                         // start timer
                         if (Double.IsNaN(delayUT))
+                        {
+                            // slow down timewarp
                             delayUT = Planetarium.GetUniversalTime();
+                            StoreTimeWarp();
+                            StopSpeedup();
+                            // switch NavBall UI
+                            FlightGlobals.SetSpeedMode(FlightGlobals.SpeedDisplayModes.Orbit);
+                        }
                         double diffUT = Planetarium.GetUniversalTime() - delayUT;
-                        StoreTimeWarp();
-                        StopSpeedup();
-                        attitude.attitudeTo(q, AttitudeReference.ORBIT, this);
-                        DebugMessage += String.Format("tunring into Insertion program {0:0.0}\n", diffUT);
+                        //attitude.attitudeTo(q, AttitudeReference.ORBIT, this);
                         q.x = (attitude.lastAct.x * 8.0f + q.x) / 9.0f;
                         if (diffUT > 10 || (attitude.lastAct.x > 0.02 && diffUT > 2.0))
                         {
@@ -639,16 +717,16 @@ namespace GravityTurn
 
         string PreflightInfo(Vessel vessel)
         {
-            string info;
-            info = string.Format("Drag area {0:0.00}", vesselState.areaDrag);
-            info += string.Format("\nDrag coefficient {0:0.00}", vesselState.dragCoef);
-            info += string.Format("\nDrag coefficient fwd {0:0.00}", vessel.DragCubeCoefForward());
-            info += string.Format("\nMass {0:0.00}", vesselState.mass);
+            string info = "";
+            info += string.Format("Surface TWR:\t{0:0.00}\n", TWRWeightedAverage(2 * vessel.mainBody.GeeASL * DestinationHeight, vessel));
+            info += string.Format("Mass:\t\t{0:0.00} t\n", vesselState.mass);
+            info += string.Format("Height:\t\t{0:0.0} m\n", vesselState.vesselHeight);
+            info += "\n";
+            info += string.Format("Drag area:\t\t{0:0.00}\n", vesselState.areaDrag);
+            info += string.Format("Drag coefficient:\t{0:0.00}\n", vesselState.dragCoef);
+            info += string.Format("Drag coefficient fwd:\t{0:0.00}\n", vessel.DragCubeCoefForward());
             DragRatio.value = vesselState.areaDrag / vesselState.mass;
-            info += string.Format("\narea/mass {0:0.00}", DragRatio.value);
-            info += string.Format("\nGuess TWR {0:0.00}", TWRWeightedAverage(2 * vessel.mainBody.GeeASL * DestinationHeight, vessel));
-            info += string.Format("\nPitch {0:0.00}", vessel.Pitch());
-            info += string.Format("\nTimeToDesiredAP {0:0.00}", Calculations.TimeToReachAP(vesselState, vesselState.speedVertical, HoldAPTime));
+            info += string.Format("area/mass:\t{0:0.00}\n", DragRatio.value);
             return info;
         }
 
@@ -665,24 +743,29 @@ namespace GravityTurn
             VelocityLost += ((vesselState.thrustCurrent / vesselState.mass) - fwdAcceleration) * TimeInterval;
             DragLoss += vesselState.drag * TimeInterval;
             GravityDragLoss += GravityDrag * TimeInterval;
+
             double VectorDrag = vesselState.thrustCurrent - Vector3d.Dot(vesselState.thrustVectorLastFrame, vessel.obt_velocity.normalized);
             VectorDrag = VectorDrag / vesselState.mass;
             VectorLoss += VectorDrag * TimeInterval;
             TotalBurn += vesselState.thrustCurrent / vesselState.mass * TimeInterval;
+
             double GravityDragLossAtAp = GravityDragLoss + vessel.obt_velocity.magnitude - vessel.orbit.getOrbitalVelocityAtUT(vessel.orbit.timeToAp + Planetarium.GetUniversalTime()).magnitude;
             TotalLoss = DragLoss + GravityDragLossAtAp + VectorLoss;
             if (vessel.CriticalHeatPart().CriticalHeat() > MaxHeat)
                 MaxHeat = vessel.CriticalHeatPart().CriticalHeat();
-            //launchdb.RecordLaunch();
+
             Message = string.Format(
-                "Air Drag:\t\t{0:0.00}m/s²\n" +
-                "GravityDrag:\t{1:0.00}m/s²\n" +
-                "Thrust Vector Drag:\t{5:0.00}m/s²\n" +
-                "Air Drag Loss:\t{2:0.00}m/s\n" +
+                "Air Drag:\t\t{0:0.00} m/s²\n" +
+                "GravityDrag:\t{1:0.00} m/s²\n" +
+                "Thrust Vector Drag:\t{5:0.00} m/s²\n" +
+                "Air Drag Loss:\t{2:0.00} m/s\n" +
                 "Gravity Drag Loss:\t{3:0.00} -> {4:0.00}m/s @AP\n\n" +
-                "Total Vector Loss:\t{6:0.00}m/s\n" +
-                "Total Loss:\t{7:0.00}m/s\n" +
-                "Total Burn:\t\t{8:0.0}",
+                "Total Vector Loss:\t{6:0.00} m/s\n" +
+                "Total Loss:\t{7:0.00} m/s\n" +
+                "Total Burn:\t\t{8:0.0}\n\n" +
+                "Apoapsis:\t\t{9}\n" +
+                "Periapsis:\t\t{10}\n" +
+                "Inclination:\t\t{11:0.0} °\n",
                 vesselState.drag,
                 GravityDrag,
                 DragLoss,
@@ -690,7 +773,10 @@ namespace GravityTurn
                 VectorDrag,
                 VectorLoss,
                 TotalLoss,
-                TotalBurn
+                TotalBurn,
+                OrbitExtensions.FormatOrbitInfo(vessel.orbit.ApA, vessel.orbit.timeToAp),
+                OrbitExtensions.FormatOrbitInfo(vessel.orbit.PeA, vessel.orbit.timeToPe),
+                vessel.orbit.inclination
                 );
         }
 
@@ -757,6 +843,7 @@ namespace GravityTurn
             {
                 Log(ex.ToString());
             }
+            DebugShow = false;
             windowManager.OnDestroy();
             ApplicationLauncher.Instance.RemoveModApplication(button);
         }

@@ -581,7 +581,7 @@ namespace GravityTurn.Window
 
         public static string TimeToDHMS(double seconds, int decimalPlaces = 0)
         {
-            if (double.IsInfinity(seconds) || double.IsNaN(seconds)) return "Inf";
+            if (double.IsInfinity(seconds) || double.IsNaN(seconds)) return "-";
 
             string ret = "";
             bool showSecondsDecimals = decimalPlaces > 0;
@@ -609,7 +609,7 @@ namespace GravityTurn.Window
                         else if (first) ret += n.ToString();
                         else ret += n.ToString(i == 1 ? "000" : "00");
 
-                        ret += units[i];
+                        ret += " " + units[i];
                     }
                     seconds -= n * intervals[i];
                 }

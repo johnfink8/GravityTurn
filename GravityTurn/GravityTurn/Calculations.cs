@@ -81,6 +81,26 @@ namespace GravityTurn
             if (turner.Throttle.value > 1)
                 turner.Throttle.force(1);
 
+            // calculate Yaw correction for inclination
+            if (vessel.ProgradePitch(true) > -45 
+                && Math.Abs(turner.Inclination) > 2
+                && turner.program != GravityTurner.AscentProgram.InLaunch)
+            {
+                float heading = (Mathf.Sign(turner.Inclination) * (float)turner.vesselState.orbitInclination.value - turner.Inclination);
+                GravityTurner.DebugMessage += String.Format("  Heading: {0:0.00}\n", heading);
+                heading *= 1.2f;
+                if (Math.Abs(heading) < 0.3)
+                    heading = 0;
+                else if (Mathf.Abs(turner.YawAdjustment) > 0.1)
+                    heading = (turner.YawAdjustment*7.0f + heading)/8.0f;
+
+                if (Mathf.Abs(turner.YawAdjustment) > Mathf.Abs(heading) || turner.YawAdjustment == 0.0)
+                    turner.YawAdjustment = heading;
+                GravityTurner.DebugMessage += String.Format("  YawCorrection: {0:0.00}\n", turner.YawAdjustment);
+            }
+            else
+                turner.YawAdjustment = 0;
+
             // Inrease the AP time if needed for SRB lifter stages
             if (vessel.HasActiveSRB() && vessel.orbit.timeToAp > turner.HoldAPTime && turner.TimeSpeed < 0)
             {
