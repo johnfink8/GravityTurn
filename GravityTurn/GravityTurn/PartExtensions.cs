@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 //using System.Threading.Tasks;
 using UnityEngine;
@@ -29,28 +28,63 @@ namespace GravityTurn
             }
             return null;
         }
+        // An allocation free version of GetModuleMass
+        public static float GetModuleMassNoAlloc(this Part p, float defaultMass, ModifierStagingSituation sit)
+        {
+            float mass = 0f;
+
+            for (int i = 0; i < p.Modules.Count; i++)
+            {
+                IPartMassModifier m = p.Modules[i] as IPartMassModifier;
+                if (m != null)
+                {
+                    mass += m.GetModuleMass(defaultMass, sit);
+                }
+            }
+            return mass;
+        }
         public static bool IsUnfiredDecoupler(this Part p)
         {
+            bool isFairing = false;
             for (int i = 0; i < p.Modules.Count; i++)
             {
                 PartModule m = p.Modules[i];
+
                 ModuleDecouple mDecouple = m as ModuleDecouple;
                 if (mDecouple != null)
                 {
-                    if (!mDecouple.isDecoupled && p.stagingOn) return true;
+                    if (!mDecouple.isDecoupled && mDecouple.stagingEnabled && p.stagingOn) return true;
                     break;
                 }
 
                 ModuleAnchoredDecoupler mAnchoredDecoupler = m as ModuleAnchoredDecoupler;
                 if (mAnchoredDecoupler != null)
                 {
-                    if (!mAnchoredDecoupler.isDecoupled && p.stagingOn) return true;
+                    if (!mAnchoredDecoupler.isDecoupled && mAnchoredDecoupler.stagingEnabled && p.stagingOn) return true;
                     break;
                 }
 
-                if (m.ClassName == "ProceduralFairingDecoupler")
+                ModuleDockingNode mDockingNode = m as ModuleDockingNode;
+                if (mDockingNode != null)
                 {
-                    return p.stagingOn;
+                    if (mDockingNode.staged && mDockingNode.stagingEnabled && p.stagingOn) return true;
+                    break;
+                }
+
+                if (m is ModuleProceduralFairing)
+                    isFairing = true;
+
+                if (m is ModuleCargoBay && isFairing)
+                {
+                    ModuleCargoBay fairing = m as ModuleCargoBay;
+                    if (fairing.ClosedAndLocked() && m.stagingEnabled && p.stagingOn) return true;
+                        break;
+                }
+
+                if (VesselState.isLoadedProceduralFairing && m.moduleName == "ProceduralFairingDecoupler")
+                {
+                    if (!m.Fields["decoupled"].GetValue<bool>(m) && m.stagingEnabled &&  p.stagingOn) return true;
+                    break;
                 }
             }
             return false;
@@ -60,7 +94,7 @@ namespace GravityTurn
             return p.ActivatesEvenIfDisconnected
                 && p.IsEngine()
                 && p.IsDecoupledInStage(p.inverseStage)
-                && !p.isControlSource;
+                && p.isControlSource == Vessel.ControlLevel.NONE;
         }
         public static bool IsEngine(this Part p)
         {
@@ -71,6 +105,18 @@ namespace GravityTurn
             }
             return false;
         }
+
+        public static bool IsFuelTank(this Part p)
+        {
+            for (int i = 0; i < p.Resources.Count; i++)
+            {
+                PartResource r = p.Resources[i];
+                if (r.resourceName == "LiquidFuel" || r.resourceName == "SolidFuel")
+                    return true;
+            }
+            return false;
+        }
+
 
         public static bool IsParachute(this Part p)
         {
@@ -86,6 +132,15 @@ namespace GravityTurn
             for (int i = 0; i < p.Modules.Count; i++)
             {
                 if (p.Modules[i] is LaunchClamp) return true;
+            }
+            return false;
+        }
+
+        public static bool IsFairing(this Part p)
+        {
+            for (int i = 0; i < p.Modules.Count; i++)
+            {
+                if (p.Modules[i] is ModuleProceduralFairing) return true;
             }
             return false;
         }
@@ -106,6 +161,27 @@ namespace GravityTurn
 
             }
             return false;
+        }
+        public static bool FuelTankHasFuel(this Part p)
+        {
+            for (int i = 0; i < p.Resources.Count; i++)
+            {
+                PartResource r = p.Resources[i];
+                if (r.resourceName == "LiquidFuel" || r.resourceName == "SolidFuel")
+                    return r.amount > 0;
+            }
+            return false;
+        }
+        public static void DeployFairing(this Part p)
+        {
+            for (int i = 0; i < p.Modules.Count; i++)
+            {
+                PartModule m = p.Modules[i];
+                ModuleProceduralFairing fairing = m as ModuleProceduralFairing;
+                if (fairing != null)
+                    fairing.DeployFairing();
+
+            }
         }
 
         public static double CriticalHeat(this Part p)

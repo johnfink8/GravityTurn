@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using KSP.UI.Screens;
+using Smooth.Slinq;
 
 namespace GravityTurn
 {
-    public class StageController 
+    public class StageController
     {
         public StageController(GravityTurner turner)
 
@@ -18,11 +18,8 @@ namespace GravityTurn
         public static Vessel vessel { get { return FlightGlobals.ActiveVessel; } }
         private VesselState vesselState { get { return turner.vesselState; } }
         //adjustable parameters:
-        public EditableValue autostagePostDelay = new EditableValue(0.5,"{0:0.0}");
-        public EditableValue autostagePreDelay = new EditableValue(1.0, "{0:0.0}");
-        public EditableValue autostageLimit = new EditableValue(0, "{0:0}");
 
-        public bool autoStageManagerOnce = false;
+        static public bool topFairingDeployed = false;
 
         //internal state:
         double lastStageTime = 0;
@@ -32,54 +29,86 @@ namespace GravityTurn
 
         public void Update()
         {
-            if (!vessel.isActiveVessel) return;
+            if (!vessel.isActiveVessel)
+                return;
+
+            GravityTurner.DebugMessage += String.Format("StageController is active {0}, {1}\n", StageManager.CurrentStage, vessel.currentStage);
 
             //if autostage enabled, and if we are not waiting on the pad, and if there are stages left,
-            //and if we are allowed to continue StageManager, and if we didn't just fire the previous stage
-            if (vessel.LiftedOff() && StageManager.CurrentStage > 0 && StageManager.CurrentStage > autostageLimit
-                && vesselState.time - lastStageTime > autostagePostDelay)
+            //and if we are allowed to continue staging, and if we didn't just fire the previous stage
+            if (!vessel.LiftedOff() || StageManager.CurrentStage <= 0 || StageManager.CurrentStage <= turner.autostageLimit
+               || Math.Abs(vesselState.time - lastStageTime) < turner.autostagePostDelay)
+                return;
+
+            GravityTurner.DebugMessage += "  Lifted off\n";
+             
+            //only decouple fairings if the dynamic pressure and altitude conditions are respected
+            if (!topFairingDeployed)
             {
-                //don't decouple active or idle engines or tanks
-                List<int> burnedResources = FindBurnedResources();
-                if (!InverseStageDecouplesActiveOrIdleEngineOrTank(StageManager.CurrentStage - 1, vessel, burnedResources))
+                Part fairing = GetTopmostFairing(vessel);
+                if (fairing == null)
+                    GravityTurner.DebugMessage += "  no top fairing\n";
+                
+                if (fairing != null && fairing.IsUnfiredDecoupler() && (vesselState.dynamicPressure < turner.FairingPressure && Math.Abs(vesselState.dynamicPressure - vesselState.maxQ) > 0.1) && (vesselState.maxQ > vessel.mainBody.atmospherePressureSeaLevel/2))
                 {
-                    //Don't fire a stage that will activate a parachute, unless that parachute gets decoupled:
-                    if (!HasStayingChutes(StageManager.CurrentStage - 1, vessel))
-                    {
-                        // Don't pop procedural fairings at more than FairingPressure or before maxQ
-                        if (!HasStayingFairing(StageManager.CurrentStage - 1, vessel) || (vesselState.dynamicPressure < turner.FairingPressure && vesselState.dynamicPressure < vesselState.maxQ))
-                        {
-                            //only fire decouplers to drop deactivated engines or tanks
-                            bool firesDecoupler = InverseStageFiresDecoupler(StageManager.CurrentStage - 1, vessel);
-                            if (!firesDecoupler || InverseStageDecouplesDeactivatedEngineOrTank(StageManager.CurrentStage - 1, vessel))
-                            {
-                                //When we find that we're allowed to stage, start a countdown (with a 
-                                //length given by autostagePreDelay) and only stage once that countdown finishes,
-                                if (countingDown)
-                                {
-                                    if (vesselState.time - stageCountdownStart > autostagePreDelay)
-                                    {
-                                        if (firesDecoupler)
-                                        {
-                                            //if we decouple things, delay the next stage a bit to avoid exploding the debris
-                                            lastStageTime = vesselState.time;
-                                        }
-
-
-                                        StageManager.ActivateNextStage();
-                                        countingDown = false;
-
-                                    }
-                                }
-                                else
-                                {
-                                    countingDown = true;
-                                    stageCountdownStart = vesselState.time;
-                                }
-                            }
-                        }
-                    }
+                    topFairingDeployed = true;
+                    fairing.DeployFairing();
+                    GravityTurner.Log("Top Fairing deployed.");
+                    GravityTurner.Log("  fairing pressure: {0:0.0}", turner.FairingPressure);
+                    GravityTurner.Log("  dynamic pressure: {0:0.0}", vesselState.dynamicPressure);
+                    GravityTurner.Log("  vessel maxQ: {0:0.0}", vesselState.maxQ);
+                    GravityTurner.DebugMessage += "  Deploying top Fairing!!!\n";
+                    return;
                 }
+            }
+
+            //don't decouple active or idle engines or tanks
+            List<int> burnedResources = FindBurnedResources();
+            if (InverseStageDecouplesActiveOrIdleEngineOrTank(StageManager.CurrentStage - 1, vessel, burnedResources))
+                return;
+
+            GravityTurner.DebugMessage += "  active/idle Engine\n";
+
+            //Don't fire a stage that will activate a parachute, unless that parachute gets decoupled:
+            if (HasStayingChutes(StageManager.CurrentStage - 1, vessel))
+                return;
+
+            GravityTurner.DebugMessage += "  HasStayingChute\n";
+
+            //only fire decouplers to drop deactivated engines or tanks
+            bool firesDecoupler = InverseStageFiresDecoupler(StageManager.CurrentStage - 1, vessel);
+            if (firesDecoupler && !InverseStageDecouplesDeactivatedEngineOrTank(StageManager.CurrentStage - 1, vessel))
+                return;
+
+            GravityTurner.DebugMessage += "  deactivated Engine/Tank\n";
+
+            //When we find that we're allowed to stage, start a countdown (with a
+            //length given by autostagePreDelay) and only stage once that countdown finishes,
+            if (countingDown)
+            {
+                GravityTurner.DebugMessage += "  Counting down\n";
+                if (Math.Abs(vesselState.time - stageCountdownStart) > turner.autostagePreDelay)
+                {
+                    GravityTurner.DebugMessage += "    Countdown finished\n";
+                    if (firesDecoupler)
+                    {
+                        //if we decouple things, delay the next stage a bit to avoid exploding the debris
+                        lastStageTime = vesselState.time;
+                    }
+                    GravityTurner.DebugMessage += "    ActivateNextStage\n";
+                    GravityTurner.Log("Activate next stage.");
+                    StageManager.ActivateNextStage();
+                    countingDown = false;
+                    GravityTurner.RestoreTimeWarp();
+                }
+            }
+            else
+            {
+                GravityTurner.DebugMessage += "  Stage Countdown\n";
+                GravityTurner.StoreTimeWarp();
+                GravityTurner.StopSpeedup();
+                stageCountdownStart = vesselState.time;
+                countingDown = true;
             }
         }
 
@@ -109,16 +138,54 @@ namespace GravityTurn
         }
         ModuleEngines EnabledEngine(Part p)
         {
-            return p.Modules.OfType<ModuleEngines>().First(IsEnabledEngine);
+            for (int i = 0; i < p.Modules.Count; i++)
+            {
+                PartModule m = p.Modules[i];
+                if (m is ModuleEngines
+                    && IsEnabledEngine(m as ModuleEngines))
+                {
+                    return m as ModuleEngines;
+                }
+            }
+            return null;
         }
+        List<Part> GetEnginesOfVessel(Vessel v)
+        {
+            var engines = new List<Part>();
+
+            for (int i = 0; i < v.Parts.Count; i++)
+            {
+                if (PartIsEngine(v.Parts[i]))
+                    engines.Add(v.Parts[i]);
+            }
+            return engines;
+        }
+        List<ModuleEngines> GetEnabledEnginesOfVessel(Vessel v)
+        {
+            var engineModules = new List<ModuleEngines>();
+            for (int i = 0; i < v.Parts.Count; i++)
+            {
+                Part p = v.Parts[i];
+                if (PartIsEngine(p) && EnabledEngine(p))
+                    engineModules.Add(EnabledEngine(p));
+            }
+            return engineModules;
+        }
+
 
         public List<int> FindBurnedResources()
         {
-            //return new List<int>();
-            var activeEngines = vessel.parts.Where(PartIsEngine);
-            var engineModules = activeEngines.Select(EnabledEngine);
-            var burnedPropellants = engineModules.SelectMany(eng => eng.propellants);
-            List<int> propellantIDs = burnedPropellants.Select(prop => prop.id).ToList();
+            var engineModules = GetEnabledEnginesOfVessel(vessel);
+
+            var propellantIDs = new List<int>();
+            for (int eng = 0; eng < engineModules.Count; eng++)
+            {
+                var e = engineModules[eng];
+                for (int i = 0; i < e.propellants.Count; i++)
+                {
+                    propellantIDs.Add(e.propellants[i].id);
+                }
+            }
 
             return propellantIDs;
         }
@@ -131,7 +198,7 @@ namespace GravityTurn
             {
                 return true; // TODO: properly check if ModuleEngines is active
             }
-            if ((p is FuelTank) && (((FuelTank)p).fuel > 0)) return true;
+
             if (!p.IsSepratron())
             {
                 for (int i = 0; i < p.Resources.Count; i++)
@@ -185,7 +252,7 @@ namespace GravityTurn
         //detect if a part is above a deactivated engine or fuel tank
         public static bool HasDeactivatedEngineOrTankDescendant(Part p)
         {
-            if ((p.State == PartStates.DEACTIVATED) && (p is FuelTank || p.IsEngine()) && !p.IsSepratron())
+            if ((p.State == PartStates.DEACTIVATED) && (p.IsFuelTank() || p.IsEngine()) && !p.IsSepratron())
             {
                 return true; // TODO: yet more ModuleEngine lazy checks
             }
@@ -196,7 +263,7 @@ namespace GravityTurn
             for (int i = 0; i < p.Resources.Count; i++)
             {
                 PartResource r = p.Resources[i];
-                if (r.name == "ElectricCharge") continue;
+                if (r.resourceName == "ElectricCharge") continue;
                 if (r.maxAmount > 0) hadResources = true;
                 if (r.amount > 0) hasResources = true;
             }
@@ -214,13 +281,35 @@ namespace GravityTurn
             return false;
         }
 
-        public static bool HasStayingFairing(int inverseStage,Vessel v)
+        public static bool HasFairing(int inverseStage, Vessel v)
         {
             foreach (Part p in v.parts)
             {
-                if (p.inverseStage == inverseStage && 
-                    !p.IsDecoupledInStage(inverseStage) && 
-                    p.FindModulesImplementing<ModuleProceduralFairing>().Any())
+                if (p.inverseStage == inverseStage &&
+                    (p.HasModule<ModuleProceduralFairing>() || (p.FindModulesImplementing<ModuleProceduralFairing>().Count > 0 && p.Modules.Contains("ProceduralFairingDecoupler"))))
+                    return true;
+            }
+            return false;
+        }
+        public Part GetTopmostFairing(Vessel v)
+        {
+            foreach (Part p in v.parts.Slinq().OrderBy(o => o.inverseStage).ToList())
+            {
+                if (p.inverseStage < turner.autostageLimit)
+                    continue;
+                if (p.HasModule<ModuleProceduralFairing>() || (p.FindModulesImplementing<ModuleProceduralFairing>().Count > 0 && p.Modules.Contains("ProceduralFairingDecoupler")))
+                    return p;
+            }
+            return null;
+        }
+
+        public static bool HasStayingFairing(int inverseStage, Vessel v)
+        {
+            foreach (Part p in v.parts)
+            {
+                if (p.inverseStage == inverseStage &&
+                    !p.IsDecoupledInStage(inverseStage) &&
+                    (p.HasModule<ModuleProceduralFairing>() || (p.FindModulesImplementing<ModuleProceduralFairing>().Count > 0 && p.Modules.Contains("ProceduralFairingDecoupler"))))
                     return true;
             }
             return false;

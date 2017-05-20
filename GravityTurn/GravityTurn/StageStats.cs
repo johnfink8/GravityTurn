@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using UnityEngine;
 using System.Threading;
 
 namespace GravityTurn
@@ -13,13 +11,16 @@ namespace GravityTurn
     //it got another RequestUpdate in the meantime.
     public class StageStats
     {
-        public StageStats() : base() { }
+        private StageController Stage;
+        public StageStats(StageController stage) : base() { Stage = stage;  }
 
         public static Vessel vessel { get { return FlightGlobals.ActiveVessel; } }
         public bool dVLinearThrust = true;
 
         public FuelFlowSimulation.Stats[] atmoStats = { };
         public FuelFlowSimulation.Stats[] vacStats = { };
+
+        private FuelFlowSimulation[] sims = { new FuelFlowSimulation(), new FuelFlowSimulation() };
 
         public void RequestUpdate(object controller)
         {
@@ -57,6 +58,34 @@ namespace GravityTurn
         {
             TryStartSimulation();
         }
+        public void ForceSimunlation()
+        {
+            try
+            {
+                simulationRunning = true;
+                stopwatch.Start(); //starts a timer that times how long the simulation takes
+
+                //Create two FuelFlowSimulations, one for vacuum and one for atmosphere
+                List<Part> parts = (HighLogic.LoadedSceneIsEditor ? EditorLogic.fetch.ship.parts : vessel.parts);
+
+                sims[0].Init(parts, dVLinearThrust);
+                sims[1].Init(parts, dVLinearThrust);
+
+                RunSimulation(sims);
+            }
+            catch (Exception e)
+            {
+                GravityTurner.Log("Exception in StageStats.ForceSimunlation(): {0}", e.ToString());
+                // Stop timing the simulation
+                stopwatch.Stop();
+                millisecondsBetweenSimulations = 500;
+                stopwatch.Reset();
+
+                // Start counting down the time to the next simulation
+                stopwatch.Start();
+                simulationRunning = false;
+            }
+        }
 
         public void TryStartSimulation()
         {
@@ -88,7 +117,9 @@ namespace GravityTurn
 
                 //Create two FuelFlowSimulations, one for vacuum and one for atmosphere
                 List<Part> parts = (HighLogic.LoadedSceneIsEditor ? EditorLogic.fetch.ship.parts : vessel.parts);
-                FuelFlowSimulation[] sims = { new FuelFlowSimulation(parts, dVLinearThrust), new FuelFlowSimulation(parts, dVLinearThrust) };
+
+                sims[0].Init(parts, dVLinearThrust);
+                sims[1].Init(parts, dVLinearThrust);
 
                 //Run the simulation in a separate thread
                 ThreadPool.QueueUserWorkItem(RunSimulation, sims);
@@ -113,7 +144,6 @@ namespace GravityTurn
             try
             {
                 CelestialBody simBody = HighLogic.LoadedSceneIsEditor ? editorBody : vessel.mainBody;
-
                 double staticPressureKpa = (HighLogic.LoadedSceneIsEditor || !liveSLT ? (simBody.atmosphere ? simBody.GetPressure(0) : 0) : vessel.staticPressurekPa);
                 double atmDensity = (HighLogic.LoadedSceneIsEditor || !liveSLT ? simBody.GetDensity(simBody.GetPressure(0), simBody.GetTemperature(0)) : vessel.atmDensity) / 1.225;
                 double mach = HighLogic.LoadedSceneIsEditor ? 1 : vessel.mach;

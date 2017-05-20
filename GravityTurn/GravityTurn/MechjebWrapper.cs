@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using UnityEngine;
 using System.Reflection;
@@ -27,18 +26,31 @@ namespace GravityTurn
                         return true;
                     }
                 }
-            
+
             }
             return false;
         }
+
+        System.Type FindMechJebModule(string module)
+        {
+            Type type = null;
+            AssemblyLoader.loadedAssemblies.TypeOperation(t =>
+            {
+                if (t.FullName == module)
+                {
+                    type = t;
+                }
+            });
+
+            return type;
+        }
+
         public bool init()
         {
             if (Initialized)
                 return true;
-            CoreType = AssemblyLoader.loadedAssemblies
-                .Select(a => a.assembly.GetExportedTypes())
-                .SelectMany(t => t)
-                .FirstOrDefault(t => t.FullName == "MuMech.MechJebCore");
+            CoreType = FindMechJebModule("MuMech.MechJebCore");
+
             if (CoreType == null)
             {
                 GravityTurner.Log("MechJeb assembly not found");
@@ -66,12 +78,10 @@ namespace GravityTurn
         {
             double UT = Planetarium.GetUniversalTime();
             UT += vessel.orbit.timeToAp;
-            System.Type OrbitalManeuverCalculatorType = AssemblyLoader.loadedAssemblies
-                .Select(a=>a.assembly.GetExportedTypes())
-                .SelectMany(t=>t)
-                .FirstOrDefault(t=>t.FullName=="MuMech.OrbitalManeuverCalculator");
-            MethodInfo CircularizeMethod = OrbitalManeuverCalculatorType.GetMethod("DeltaVToCircularize",BindingFlags.Public | BindingFlags.Static);
-            Vector3d deltav = (Vector3d)CircularizeMethod.Invoke(null, new object[]{vessel.orbit,UT});
+            System.Type OrbitalManeuverCalculatorType = FindMechJebModule("MuMech.OrbitalManeuverCalculator");
+
+            MethodInfo CircularizeMethod = OrbitalManeuverCalculatorType.GetMethod("DeltaVToCircularize", BindingFlags.Public | BindingFlags.Static);
+            Vector3d deltav = (Vector3d)CircularizeMethod.Invoke(null, new object[] { vessel.orbit, UT });
             GravityTurner.Log(string.Format("Circularization burn {0:0.0} m/s", deltav.magnitude));
             vessel.PlaceManeuverNode(vessel.orbit, deltav, UT);
             ExecuteNode();

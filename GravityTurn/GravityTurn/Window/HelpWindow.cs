@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using UnityEngine;
 
@@ -8,7 +7,7 @@ namespace GravityTurn.Window
 {
     public class HelpWindow : BaseWindow
     {
-        string helpWindowText = "";
+        public string helpWindowText = "";
 
         public HelpWindow(GravityTurner inTurner, int inWindowID)
             : base(inTurner,inWindowID)
@@ -18,7 +17,7 @@ namespace GravityTurn.Window
 
         public void Button(string helpMessage)
         {
-            if (GUILayout.Button("?", GUILayout.ExpandWidth(false), GUILayout.ExpandHeight(false), GUILayout.Height(16)))
+            if (GUILayout.Button("?", GUILayout.ExpandWidth(false), GUILayout.ExpandHeight(false), GUILayout.MaxWidth(18), GUILayout.MinHeight(18)))
             {
                 if (helpWindowText == helpMessage && WindowVisible)
                     WindowVisible = false;

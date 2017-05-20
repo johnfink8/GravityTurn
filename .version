@@ -1,24 +1,24 @@
 {
     "NAME":"GravityTurn",
     "URL":"http://forum.kerbalspaceprogram.com/index.php?/topic/129607-105-gravityturn-version-131-automated-efficient-launches-11-pre-release-available/",
-    "DOWNLOAD":"https://github.com/johnfink8/GravityTurn/releases",
+    "DOWNLOAD":"https://github.com/AndyMt/GravityTurn/releases",
     "GITHUB":
     {
-        "USERNAME":"johnfink8",
+        "USERNAME":"AndyMt",
         "REPOSITORY":"GravityTurn",
         "ALLOW_PRE_RELEASE":false,
     },
     "VERSION":
     {
         "MAJOR":1,
-        "MINOR":4,
+        "MINOR":5,
         "PATCH":0,
         "BUILD":0
     },
     "KSP_VERSION":
     {
         "MAJOR":1,
-        "MINOR":1,
+        "MINOR":2,
         "PATCH":0
     }
 }

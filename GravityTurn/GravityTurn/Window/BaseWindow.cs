@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using UnityEngine;
 using KSP.IO;
@@ -48,9 +47,10 @@ namespace GravityTurn.Window
     {
         int WindowID;
         protected GravityTurner turner;
-        public bool WindowVisible = false;
+        public bool WindowVisible = false; 
         public string WindowTitle = "GravityTurn";
         string filename;
+        public static bool ShowGUI = true;
 
         [Persistent]
         public PersistentWindow windowPos = new PersistentWindow();
@@ -66,8 +66,18 @@ namespace GravityTurn.Window
             this.turner = turner;
             turner.windowManager.Register(this);
             WindowID = inWindowID;
-            filename = IOUtils.GetFilePathFor(turner.GetType(), string.Format("gt_window_{0}.cfg", WindowID));
+            filename = LaunchDB.GetBaseFilePath(turner.GetType(), string.Format("gt_window_{0}.cfg", WindowID));
             Load();
+            if (windowPos.left + windowPos.width > Screen.width)
+            {
+                windowPos.left = Screen.width - windowPos.width;
+            }
+            if (windowPos.top + windowPos.height > Screen.height )
+            {
+                windowPos.top = Screen.height - windowPos.height;
+            }
+            if (windowPos.top < 0)
+                windowPos.top = 0;
         }
 
         public void Load()
@@ -77,10 +87,7 @@ namespace GravityTurn.Window
                 ConfigNode root = ConfigNode.Load(filename);
                 if (root != null)
                 {
-                    if (ConfigNode.LoadObjectFromConfig(this, root))
-                        GravityTurner.Log("Window loaded from {0}", filename);
-                    else
-                        GravityTurner.Log("Window NOT loaded from {0}", filename);
+                    ConfigNode.LoadObjectFromConfig(this, root);
                 }
             }
             catch (Exception ex)
@@ -91,18 +98,20 @@ namespace GravityTurn.Window
 
         public virtual void WindowGUI(int windowID)
         {
+            if (!ShowGUI)
+                return;
             if (GUI.Button(new Rect(windowPos.width - 18, 2, 16, 16), "X"))
             {
                 WindowVisible = false;
             }
             GUI.DragWindow(new Rect(0, 0, 10000, 20));
-
         }
         public void drawGUI()
         {
-            if (WindowVisible)
+            if (WindowVisible && ShowGUI)
             {
-                GUI.skin = HighLogic.Skin;
+                GuiUtils.LoadSkin(GuiUtils.SkinType.Compact);
+                GUI.skin = GuiUtils.skin;
                 windowPos = GUILayout.Window(WindowID, windowPos, WindowGUI, WindowTitle, GUILayout.MinWidth(300));
             }
         }
@@ -117,7 +126,6 @@ namespace GravityTurn.Window
             Directory.CreateDirectory(Path.GetDirectoryName(filename));
             ConfigNode root = ConfigNode.CreateConfigFromObject(this);
             root.Save(filename);
-            GravityTurner.Log("Window saved to {0}", filename);
         }
     }
 }
