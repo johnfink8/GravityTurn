@@ -44,6 +44,8 @@ namespace GravityTurn
                 return -1;
             if (!other.LaunchSuccess && LaunchSuccess) // other failed and we didn't
                 return -1;
+            if (!LaunchSuccess && other.LaunchSuccess) // we failed and other didn't
+                return 1;
             if (other.TotalLoss == TotalLoss)
                 return 0;
             return (other.TotalLoss > TotalLoss)?-1:1;
